@@ -118,7 +118,7 @@
     os.system(curl)    
     print('\n\n')
 
-Μετά από μερικές προσπάθειες βρήκαμε τα στοιχεία του πρώτου χρήστη (που ήταν της μορφής **name:md5(password)**) που βρίσκονταν στο αρχείο **passwd** . Μεταφέραμε ακριβώς το ίδιο input (** %08x %08x %08x %08x %08x %08x %s**) στο server της άσκησης και το output ήταν: 
+Μετά από μερικές προσπάθειες βρήκαμε τα στοιχεία του πρώτου χρήστη (που ήταν της μορφής **name:md5(password)**) που βρίσκονταν στο αρχείο **passwd** . Μεταφέραμε ακριβώς το ίδιο input (**%08x %08x %08x %08x %08x %08x %s**) στο server της άσκησης και το output ήταν: 
 
 > http://4tpgiulwmoz4sphv.onion is requesting your username and
 > password. The site says: “Invalid user:  5807d010 15 5656951d ffffffff
