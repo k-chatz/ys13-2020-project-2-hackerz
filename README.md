@@ -7,12 +7,12 @@
 ## Ερώτημα 1 
 Αρχικά, πλοηγηθήκαμε στο site ( http://2fvhjskjet3n5syd6yfg5lhvwcs62bojmthr35ko5bllr3iqdb4ctdyd.onion ) , στον κώδικα html και στα cookies. Τα 2 πράγματα που μας κίνησαν το ενδιαφέρον ήταν το σχόλιο στον κώδικα αλλά και το οτι μέσω του cookie μπορούσαμε να αλλάξουμε τον αριθμό των visitors.
 ### Για το σχόλιο
-Μπήκαμε στο άρθρο που είχε το σχόλιο ( https://blog.0day.rocks/securing-a-web-hidden-service-89d935ba1c1d ) και δοκιμάζαμε ότι έλεγε μήπως βρίσκαμε κάτι που δεν είχε γίνει. Πράγματι το /server-info ( http://2fvhjskjet3n5syd6yfg5lhvwcs62bojmthr35ko5bllr3iqdb4ctdyd.onion/server-info ) δεν ήταν κλειδομένο και μπήκαμε να δούμε αν θα βρούμε πληροφορίες που μας ενδιαφέρουν. 
+Μπήκαμε στο άρθρο που είχε το σχόλιο (https://blog.0day.rocks/securing-a-web-hidden-service-89d935ba1c1d) και δοκιμάζαμε ότι έλεγε μήπως βρίσκαμε κάτι που δεν είχε γίνει. Πράγματι, το path **/server-info** (http://2fvhjskjet3n5syd6yfg5lhvwcs62bojmthr35ko5bllr3iqdb4ctdyd.onion/server-info) δεν ήταν κλειδωμένο και μπήκαμε να δούμε αν θα βρούμε πληροφορίες που μας ενδιαφέρουν. 
 
-Βρήκαμε **(1)** πως υπάρχει και **προσωπικό site του ys13**  το οποίο βρισκόταν σε άλλο link ( http://jt4grrjwzyz3pjkylwfau5xnjaj23vxmhskqaeyfhrfylelw4hvxcuyd.onion/ ) το οποίο οδηγεί σε μία φόρμα εισόδου που ζητάει κωδικό και **(2)** πως επιτρέπεται η είσοδος σε αρχεία με κατάληξη .phps. 
+Βρήκαμε **(1)** πως υπάρχει και **προσωπικό site του ys13** το οποίο βρισκόταν σε άλλο link (http://jt4grrjwzyz3pjkylwfau5xnjaj23vxmhskqaeyfhrfylelw4hvxcuyd.onion/) και οδηγεί σε μία φόρμα εισόδου που ζητάει κωδικό και **(2)** πως επιτρέπεται η είσοδος σε αρχεία με κατάληξη **.phps**. 
 
 ### Για το cookie
-Παρατηρήσαμε πως το cookie ηταν ένα string της μορφής base64(number:sha256(number)) οπότε βάζοντας στο number οτιδήποτε, μπορούσε να τυπωθεί στη σελίδα κάτω από το visitor number. Έτσι, φτιάξαμε ένα script (cookie.py) στο οποίο δίναμε την είσοδο που θέλαμε και υπολόγιζε το αντίστοιχο cookie.
+Παρατηρήσαμε πως το cookie ήταν ένα string της μορφής **base64(number:sha256(number))** οπότε βάζοντας στο number οτιδήποτε, μπορούσε να τυπωθεί στη σελίδα κάτω από το visitor number. Έτσι, φτιάξαμε ένα script (cookie.py) στο οποίο δίναμε την είσοδο που θέλαμε και υπολόγιζε το αντίστοιχο cookie.
 
 **cookie.py:**
 ```python
@@ -29,8 +29,35 @@ print(encoded.decode('ascii'))
 ```
 
 ### Personal YS13 website
-Μέσω του html κώδικα της φόρμας εισόδου, είδαμε ότι έκανε GET request στο access.php. 
-Αφού επιτρέπεται η είσοδος στα .phps αρχεία δοκιμάσαμε να μπούμε στο /access.phps και τα καταφέραμε ( http://jt4grrjwzyz3pjkylwfau5xnjaj23vxmhskqaeyfhrfylelw4hvxcuyd.onion/access.phps ). Είχαμε πλέον πρόσβαση στον κώδικα της access.php. Tο περιεχόμενο της μεταβλητής **$desired** το υπολογίσαμε μέσω script που φτιάξαμε (desired.py)
+Μέσω του html κώδικα της φόρμας εισόδου, είδαμε ότι έκανε GET request στο path **/access.php**. 
+Αφού επιτρέπεται η είσοδος στα **.phps** αρχεία, δοκιμάσαμε να μπούμε στο **/access.phps** (http://jt4grrjwzyz3pjkylwfau5xnjaj23vxmhskqaeyfhrfylelw4hvxcuyd.onion/access.phps) και τα καταφέραμε.
+Έτσι, είχαμε πλέον πρόσβαση στον κώδικα του αρχείου **access.php** που φαίνεται παρακάτω και για να συνεχίσουμε έπρεπε να υπολογίσουμε το περιεχόμενο της μεταβλητής **$desired** καθώς και έναν τρόπο να διαπεράσουμε τον έλεγχο της **strcmp** για το password.
+
+**access.php:**
+```php
+<?php
+// get $secret, $desired and $passwd from this file
+// i set $desired to the 48th multiple of 7 that contains a 7 in its decimal representation
+require_once "secret.php";
+
+if ((((((((((((((((((intval($_GET['user']) !== $desired) || (strlen($_GET['user'])) != 7))))))))))))))))) {
+    die("bad user...\n");
+}
+if ( isset ($_GET[ 'password' ])) {
+   if (strcmp($_GET[ 'password' ], $passwd) != 0 ){
+     die("bad pass...\n");
+   }
+}else {
+   die("no pass...\n");
+}
+
+// authenticated under YS13's dynamic authentication. greet the user!
+echo $secret
+?>
+```
+
+
+Tο περιεχόμενο της μεταβλητής **$desired** το υπολογίσαμε μέσω script που φτιάξαμε (desired.py)
 
 **desired.py:**
 ```python
@@ -49,15 +76,50 @@ while  1:
     p += 1
 ```
 
-και μας έβγαλε τον αριθμό **1337**, αλλά έπρεπε το μέγεθος του **$desired** να είναι 7, οπότε βάλαμε για username τον αριθμό **0001337**, ο οποίος ήταν και ο σωστός. Για το password ψάξαμε αν μπορούμε να διαπεράσουμε την **strcmp** της php. Ψάχνοντας στο google, βρήκαμε αυτό το [άρθρο](https://www.doyler.net/security-not-included/bypassing-php-strcmp-abctf2016) . Στείλαμε το password σαν array και η strcmp μας γύρισε NULL αντί για error. Στην php ισχύει ότι NULL == 0, οπότε διαπεράσαμε τη συνθήκη της if. ( http://jt4grrjwzyz3pjkylwfau5xnjaj23vxmhskqaeyfhrfylelw4hvxcuyd.onion/access.php?user=0001337&password[]=%22%22 ). Φτάσαμε στο μήνυμα **"Hi! You can find my blog posts at directory: /blogposts7589109238!"**.  Μπήκαμε στα blog posts ( http://jt4grrjwzyz3pjkylwfau5xnjaj23vxmhskqaeyfhrfylelw4hvxcuyd.onion/blogposts7589109238 ) και κάναμε access τον φάκελο που περιέχει τα post ( http://jt4grrjwzyz3pjkylwfau5xnjaj23vxmhskqaeyfhrfylelw4hvxcuyd.onion/blogposts7589109238/blogposts/ ). 
+και μας έβγαλε τον αριθμό **1337**, αλλά έπρεπε το μέγεθος του **$desired** να είναι 7, οπότε βάλαμε για username τον αριθμό **0001337**, ο οποίος ήταν και ο σωστός. 
 
-Εκτός από τα posts (**diary.html**, **diary2.html**) βρήκαμε και το **post3.html**.  To διαβάσαμε και κρατήσαμε δύο πράγματα που φανταζόμασταν ότι θα μας ήταν χρήσιμα. Τη λέξη "**raccoon**" και την τελευταία πρόταση που έλεγε πως  τα backup θα τα βρεί ο #100013 χρήστης που θα μπει στο site. Έχοντας τη δυνατότητα να αλλάξουμε το visitor number, το αλλάξαμε σε 100013 και μας εμφάνισε το μήνυμα 
+Για το password ψάξαμε αν μπορούμε να διαπεράσουμε την **strcmp** της php. Ψάχνοντας στο google, βρήκαμε αυτό το [άρθρο](https://www.doyler.net/security-not-included/bypassing-php-strcmp-abctf2016) . Στείλαμε το password σαν **array** και η strcmp μας γύρισε **NULL** αντί για error. Στην php ισχύει ότι **NULL == 0**, οπότε διαπεράσαμε τη συνθήκη της if. (http://jt4grrjwzyz3pjkylwfau5xnjaj23vxmhskqaeyfhrfylelw4hvxcuyd.onion/access.php?user=0001337&password[]=%22%22) και άνοιξε μια νέα λευκή σελίδα όπου είχε το εξής μήνυμα:
+> Hi! You can find my blog posts at directory: /blogposts7589109238!
+
+Μπήκαμε στα **blog posts** (http://jt4grrjwzyz3pjkylwfau5xnjaj23vxmhskqaeyfhrfylelw4hvxcuyd.onion/blogposts7589109238 ) και κάναμε access τον φάκελο που περιέχει τα post (http://jt4grrjwzyz3pjkylwfau5xnjaj23vxmhskqaeyfhrfylelw4hvxcuyd.onion/blogposts7589109238/blogposts/). 
+
+Εκτός από τα posts (**diary.html**, **diary2.html**) βρήκαμε και το **post3.html** όπου περιέχει το παρακάτω περιεχόμενο:
+
+> case notes (unfinished)
+> 
+> A weirdo (Giorgos Komninos) brought me this iphone today. He was
+> definitely in a paranoid state saying that "raccoon" is the secret
+> over and over...
+> 
+> theory: the phone is loaded with more than 20 different
+> "anti-tracking" applications. that's probably why it's not working
+> 
+> i'll try a factory reset and see how that works.
+> 
+> i left the phone backup in the standard secret backup location in
+> fixers that only the winner visitor #100013 will find...
+
+Διαβάζοντάς το, κρατήσαμε δύο πράγματα που φανταζόμασταν ότι θα μας ήταν χρήσιμα:
+1) Τη λέξη "**raccoon**" 
+2) Την τελευταία πρόταση που έλεγε πως  τα backup θα τα βρεί ο **#100013 χρήστης** που θα μπει στο site. 
+
+Έχοντας τη δυνατότητα στην αρχική σελίδα να αλλάξουμε το visitor number μέσω του cookie, το αλλάξαμε σε 100013 και έτσι, εμφανίστηκε το παρακάτω μήνυμα:
 
 >  Visitor number
 > Congrats user #100013! Check directory /sekritbackups2444 for latest
 > news... 
 
-Έτσι βρήκαμε τα backup files ( http://2fvhjskjet3n5syd6yfg5lhvwcs62bojmthr35ko5bllr3iqdb4ctdyd.onion/sekritbackups2444/ ). Στο αρχείο **notes.txt.truncated**, διαβάσαμε πως κάνει το encrypt για τα files του. Φανταζόμασταν πως το "raccoon" είναι το string που θέλαμε αλλά δεν ξέραμε την ημερομηνία. Έτσι φτιάξαμε ένα script (decrypt.py) το οποίο δοκίμαζε όλες τις ημερομηνίες του 2020 με τη λέξη "raccoon" και έτσι βρήκαμε τη σωστή ημερομηνία η οποία ήταν "**2020-2-12**". 
+Έτσι, ανοίγοντας το λινκ http://2fvhjskjet3n5syd6yfg5lhvwcs62bojmthr35ko5bllr3iqdb4ctdyd.onion/sekritbackups2444/, βρήκαμε τα παρακάτω backup files: 
+
+1) firefox.log.gz.gpg
+2) notes.txt.truncated
+3) passphrase.key.truncated	 
+4) signal.log.gpg 
+
+Στο αρχείο **notes.txt.truncated**, διαβάσαμε πως κάνει το encrypt για τα files του. 
+
+
+Φανταζόμασταν πως το "raccoon" είναι το string που θέλαμε αλλά δεν ξέραμε την ημερομηνία. Έτσι φτιάξαμε ένα script (decrypt.py) το οποίο δοκίμαζε όλες τις ημερομηνίες του 2020 με τη λέξη "raccoon" και έτσι βρήκαμε τη σωστή ημερομηνία η οποία ήταν "**2020-2-12**". 
 
 
 **decrypt.py:**
