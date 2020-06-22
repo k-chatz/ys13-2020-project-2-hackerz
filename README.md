@@ -250,16 +250,45 @@ grep -v "https://en.wikipedia.org/wiki/The_Conversation" firefox.log > out.txt
 ## Ερώρημα 2
 Για να απαντήσουμε την ερώτηση "**Τι λείπει για να ολοκληρώθει το "Plan X";**" ακολουθήσαμε την παρακάτω διαδικασία: 
 
-Από το diary2.html (http://jt4grrjwzyz3pjkylwfau5xnjaj23vxmhskqaeyfhrfylelw4hvxcuyd.onion/blogposts7589109238/blogposts/diary2.html) κρατήσαμε 2 πράγματα. 
+Ανοίγοντας το diary2.html (http://jt4grrjwzyz3pjkylwfau5xnjaj23vxmhskqaeyfhrfylelw4hvxcuyd.onion/blogposts7589109238/blogposts/diary2.html), είδαμε μια γαλάζια σελίδα με το παρακάτω περιεχόμενο:
 
+```
+Blog entry #2
 
-Το link του github με τον κώδικα του pico server (https://github.com/chatziko/pico) και το link για τον server (4tpgiulwmoz4sphv.onion). 
+I know you all want to learn about my hobbies and interests!
 
-Στήσαμε τον server στα μηχανήματά μας ώστε να τον τεστάρουμε και για να δούμε τον κώδικα αναλυτικά. 
+Due to the sensitive nature of my affiliation with the "Plan X" group I'm not just writing this stuff out here for all the creeps to see it.
 
-Αρχικά είδαμε το σχόλιο "TODO" και παρατηρήσαμε την vulnerable printf. τυπώσαμε addresses βάζοντας για input μερικά %08x και πράγματι μας τα τύπωνε. Στη συνέχεια βάλαμε %s στο τέλος των %08x. Αν υπήρχε κάποιο string εκεί θα τυπωνόταν, οπότε αρχίσαμε από την πρώτη διεύθυνση να προσπαθούμε να τυπώσουμε κάποιο string, αν δε βρίσκαμε κάτι, προσθέταμε ένα %08x πριν το %s ωστε να πάμε στην επόμενη διεύθυνση να τυπώσουμε το string. Αυτό το συνεχίσαμε μέχρι να βρούμε κάτι χρήσιμο. 
+Fortunately, a valued customer with a cool black hat recently gave me a secure interface for storing sensitive information. He said that it's even open source and ultra secure: https://github.com/chatziko/pico
 
-Φτιάξαμε ένα script που μας έφτιαχνε το input με όσα %08x θέλαμε και έτρεχε το δοκίμαζε(input.py).
+I set it up on 4tpgiulwmoz4sphv.onion! Check it out but please come by the store (when we open) and ask me for the password first.
+```
+και αυτό που μας έκανε εντύπωση ήταν:
+1) Το link του github με τον κώδικα του pico server (https://github.com/chatziko/pico) και 
+2) το link για τον server [4tpgiulwmoz4sphv.onion](4tpgiulwmoz4sphv.onion).
+
+Στήσαμε τον pico server στα μηχανήματά μας ώστε να τον τεστάρουμε και να δούμε τον κώδικα αναλυτικά. 
+
+Αρχικά είδαμε το παρακάτω "**TODO**" σχόλιο (main.c:25): 
+
+```c
+// TODO: gcc 7 gives warnings, check
+```
+το οποίο ενημερώνει πως κατά τη μεταγλώτιση θα υπάρχουν warnings και πράγματι ο **gcc** δίνει το παρακάτω warning:
+
+```bash
+main.c: In function ‘check_auth’:
+main.c:135:5: warning: format not a string literal and no format arguments [-Wformat-security]
+     printf(auth_username);
+     ^
+```
+Έτσι, παρατηρήσαμε πως κάτι δεν πάει καλά με την εντολή printf (main.c:135) και ότι είναι vulnerable σε επιθέσεις διότι δεν παίρνει ριτά το output format, αφήνοντας έτσι το χρήστη να βάλει το δικό του format με ότι αυτό συνεπάγεται.
+
+Εκμεταλλευόμενοι αυτήν την ευπαθεια, τυπώσαμε addresses βάζοντας για input μερικά **%08x** και πράγματι μας τα τύπωνε. Στη συνέχεια βάλαμε **%s** στο τέλος των **%08x** οπότε αν υπήρχε κάποιο string εκεί θα τυπωνόταν.
+
+Έτσι, αρχίσαμε από την πρώτη διεύθυνση να προσπαθούμε να τυπώσουμε κάποιο string, αν δε βρίσκαμε κάτι, προσθέταμε ένα **%08x** πριν το **%s** ωστε να πάμε στην επόμενη διεύθυνση να τυπώσουμε το string. Αυτό το συνεχίσαμε μέχρι να βρούμε κάτι χρήσιμο. 
+
+Φτιάξαμε ένα script που μας έφτιαχνε το input με όσα **%08x** θέλαμε (input.py).
 
 **input.py:**
 ```python
@@ -280,7 +309,9 @@ os.system(curl)
 print('\n\n')
 ```    
 
-Μετά από μερικές προσπάθειες βρήκαμε τα στοιχεία του πρώτου χρήστη (που ήταν της μορφής **name:md5(password)**) που βρίσκονταν στο αρχείο **passwd** . Μεταφέραμε ακριβώς το ίδιο input (**%08x %08x %08x %08x %08x %08x %s**) στο server της άσκησης και το output ήταν: 
+Μετά από μερικές προσπάθειες βρήκαμε τα στοιχεία του πρώτου χρήστη (ήταν της μορφής **name:md5(password)**) που βρίσκονταν στο αρχείο **passwd**. 
+
+Μεταφέραμε ακριβώς το ίδιο input (**%08x %08x %08x %08x %08x %08x %s**) στο server της άσκησης και το output ήταν το παρακάτω: 
 
 > http://4tpgiulwmoz4sphv.onion is requesting your username and
 > password. The site says: “Invalid user:  5807d010 15 5656951d ffffffff
@@ -289,9 +320,9 @@ print('\n\n')
 
 Άρα το **md5 hash** του κωδικου του χρήστη **admin** είναι: **f68762a532c15a8954be87b3d3fc3c31**
 
-Έπειτα, ψάξαμε σε μερικά site το md5 hash για να το κάνουμε decrypt και μετά από μερικές προσπάθειες βρήκαμε το site [https://md5.gromweb.com/?md5=f68762a532c15a8954be87b3d3fc3c31](https://md5.gromweb.com/?md5=f68762a532c15a8954be87b3d3fc3c31) το οποίο μας έδωσε το password "**you shall not pass**" :D
+Έπειτα, ψάξαμε σε μερικά site το md5 hash για να το κάνουμε **decrypt** και μετά από μερικές προσπάθειες βρήκαμε το site [https://md5.gromweb.com/?md5=f68762a532c15a8954be87b3d3fc3c31](https://md5.gromweb.com/?md5=f68762a532c15a8954be87b3d3fc3c31) το οποίο μας έδωσε το password "**you shall not pass**" :D
 
-Αποκτήσαμε πρόσβαση στο site http://4tpgiulwmoz4sphv.onion και είδαμε μια λευκή σελίδα με το παρακάτω περιεχόμενο:
+Τέλος, αποκτήσαμε πρόσβαση στο site http://4tpgiulwmoz4sphv.onion και είδαμε μια λευκή σελίδα με το παρακάτω περιεχόμενο:
 ```
 Welcome to the YS13 oasis! <3
 
@@ -309,7 +340,7 @@ If you see this page and you have one, please bring it to the YS13 store and we 
 Love you big time!
 
 ```
-Έτσι καταλήξαμε στο συμπέρασμα ότι η απάντηση βρισκόταν εκεί και συγκεκριμένα στην πρόταση "**We are missing a "solar wind analyzer" to be able to proceed with this plan.**". 
+Οπότε καταλήξαμε στο συμπέρασμα ότι η απάντηση βρισκόταν εκεί και συγκεκριμένα στην πρόταση "**We are missing a "solar wind analyzer" to be able to proceed with this plan.**". 
 
 Για να ολοκληρωθεί το Plan X χρείάζεται ένας **ηλιακός  αναλυτής ανέμου**...
 
