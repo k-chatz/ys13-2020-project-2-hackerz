@@ -212,7 +212,7 @@ grep -v "https://en.wikipedia.org/wiki/The_Conversation" firefox.log > out.txt
 25 Mar 17:12 - Maria:  ??? What are you talking about? I'm not Maria. I think you got the wrong number mate.
 ```
 
-Παρατηρήσαμε πως το 11ο μύνημα, υπάρχει ο κωδικός hash **2355437c5f30fd2390a314b7d52fb3d24583ef97** και η λέξη **commit**. Έτσι σκεφτήκαμε να αντικαταστήσουμε τον κωδικό του τελευταίου commit στο παραπάνω url με αυτόν που πήραμε από το αρχείο signal.log ([https://github.com/asn-d6/tor/commit/2355437c5f30fd2390a314b7d52fb3d24583ef97](https://github.com/asn-d6/tor/commit/2355437c5f30fd2390a314b7d52fb3d24583ef97)). 
+Παρατηρήσαμε πως στο 11ο μύνημα, υπάρχει ο κωδικός hash **2355437c5f30fd2390a314b7d52fb3d24583ef97** και η λέξη **commit**. Έτσι σκεφτήκαμε να αντικαταστήσουμε τον κωδικό του τελευταίου commit στο παραπάνω url με αυτόν που πήραμε από το αρχείο signal.log ([https://github.com/asn-d6/tor/commit/2355437c5f30fd2390a314b7d52fb3d24583ef97](https://github.com/asn-d6/tor/commit/2355437c5f30fd2390a314b7d52fb3d24583ef97)). 
 
 Όταν ανοίξαμε το commit είδαμε τις εξής αλλαγές:
 ```diff
@@ -242,10 +242,8 @@ grep -v "https://en.wikipedia.org/wiki/The_Conversation" firefox.log > out.txt
 +  */
 +
 ```
-Έτσι φτάσαμε στις οδηγίες για την εύρεση των συντεταγμένων όπου για **< team name>** βάλαμε το όνομα της ομάδας μας "**hackerz**". Ετσι βρήκαμε τις συντεταγμένες.   
-
-Συντεταγμένες: **(47.5284864714, 4.8260977302)**
-
+Έτσι φτάσαμε στις οδηγίες για την εύρεση των συντεταγμένων όπου για **< team name>** βάλαμε το όνομα της ομάδας μας "**hackerz**" και βρήκαμε τις συντεταγμένες:
+> 47.5284864714, 4.8260977302
 
 ## Ερώρημα 2
 Για να απαντήσουμε την ερώτηση "**Τι λείπει για να ολοκληρώθει το "Plan X";**" ακολουθήσαμε την παρακάτω διαδικασία: 
