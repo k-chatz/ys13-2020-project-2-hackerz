@@ -116,11 +116,44 @@ while  1:
 3) passphrase.key.truncated	 
 4) signal.log.gpg 
 
-Στο αρχείο **notes.txt.truncated**, διαβάσαμε πως κάνει το encrypt για τα files του. 
+Διαβάσαμε το περιεχόμενο του αρχείου **notes.txt.truncated** όπως φαίνεται παρακάτω και είδαμε πως κάνει το encrypt για τα αρχεία του. 
 
+**notes.txt.truncated:**
+> entry #79:
+> 
+> so i recently found this software called gpg which is capable of
+> encrypting my files, and i came up with a very smart and
+> easy-to-remember way to finally keep my data secret:
+> 
+> First of all, I generate a random passphrase using the SHA256 hash
+> algorithm, and then I save it on disk in hex as "passphrase.key". In
+> particular, here is how to generate the key:
+> 
+>     key = SHA256(<current date in RFC3339 format> + " " + <secret string>)
+> 
+>     e.g. so if the secret string is "cement" then the key would be:
+>              key = SHA256("2020-05-18 cement") = cadf84c9706ff4866f8af17d3c0e3503da44aea21c2580bd6452f7a1b8b48ed2
+> 
+> Then I use the gpg software to encrypt my files using the
+> passphrase.key file:
+> 
+>     $ gpg --symmetric --passphrase-file passphrase.key --batch plaintext.txt
+> 
+> I then delete all the unencrypted files and the key files and just
+> leave the encrypted files behind.
+> 
+> This way, if you don't know the date and the secret string there is no
+> reason to even try... Seriously this secret string is super secret and
+> I would never say it to anyone....
+> 
+> XXX don't forget to delete this file, the key and the script before
+> crossing borders
+> 
+> XXX i've noticed that sometimes my file deletion script has issues and
+> leaves
+>     corrupted truncated files beh
 
-Φανταζόμασταν πως το "raccoon" είναι το string που θέλαμε αλλά δεν ξέραμε την ημερομηνία. Έτσι φτιάξαμε ένα script (decrypt.py) το οποίο δοκίμαζε όλες τις ημερομηνίες του 2020 με τη λέξη "raccoon" και έτσι βρήκαμε τη σωστή ημερομηνία η οποία ήταν "**2020-2-12**". 
-
+Υποθέσαμε πως το "**raccoon**" είναι το string που θέλαμε αντί για το "**cement**" αλλά δεν ξέραμε την ημερομηνία. Έτσι φτιάξαμε ένα script (decrypt.py) το οποίο δοκίμαζε όλες τις ημερομηνίες του 2020 με τη λέξη "raccoon" και τέλος βρήκαμε τη σωστή ημερομηνία η οποία ήταν η "**2020-2-12**". 
 
 **decrypt.py:**
 ```python
@@ -144,17 +177,70 @@ for i in range(1, 31):
     os.system(cmd2)
 ```
 
-Κάναμε decrypt τα αρχεία.
+Έχοντας τη σωστή ημερομηνία, κάναμε **decrypt** με επιτυχία τα αρχεία:
+1) firefox.log.gz.gpg. 
+2) signal.log.gpg
 
- Στο **firefox.log** τρέξαμε ένα bash script(remove.sh)
+Παρατηρήσαμε ότι το αρχείο firefox.log είχε εκατομμύρια γραμμές όπου εμφανιζόταν η πρόταση "**https://en.wikipedia.org/wiki/The_Conversation**"  και αποφασίσαμε να κάνουμε drop κάθε γραμμή που εμπεριείχε αυτή την πρόταση για να δούμε αν θα μείνει κάποια γραμμή διαφορετική τρέχοντας το bash script (remove.sh)
 
 **remove.sh:**
 ```bash
 grep -v "https://en.wikipedia.org/wiki/The_Conversation" firefox.log > out.txt
 ```
 
- για να φύγουν όλα τα link του wikipedia, οπότε μας έμεινε το link του github( https://github.com/asn-d6/tor/ ). Μπήκαμε και είδαμε το τελευταίο commit που είχε κάνει ο κύριος **George Kadianakis** . Το link ήταν το: [https://github.com/asn-d6/tor/commit/9892cc3b12db4dc1e8cbffec8e18bb18cbd77d0f](https://github.com/asn-d6/tor/commit/9892cc3b12db4dc1e8cbffec8e18bb18cbd77d0f) . 
-Μετά μπήκαμε στο **signal.log** και πήραμε τον κωδικό και αντικαταστήσαμε τον κωδικό του τελευταίου commit στο παραπάνω url με αυτόν που πήραμε από το signal.log ( [https://github.com/asn-d6/tor/commit/2355437c5f30fd2390a314b7d52fb3d24583ef97](https://github.com/asn-d6/tor/commit/2355437c5f30fd2390a314b7d52fb3d24583ef97) ). Έτσι φτάσαμε στις οδηγίες για την εύρεση των συντεταγμένων όπου για < team name > βάλαμε το όνομα της ομάδας μας "hackerz". Ετσι βρήκαμε τις συντεταγμένες.   
+ για να φύγουν όλα τα link του wikipedia και πράγματι υπήρχε μια διαφορετική γραμμή η οποία είχε link σε κάποιο repository του Github (https://github.com/asn-d6/tor/).  
+
+Εξερευνόντας προσεκτικά τα commit στο repository, παρατηρήσαμε το τελευταίο commit που είχε κάνει ο κύριος George Kadianakis. Το link ήταν το: [https://github.com/asn-d6/tor/commit/9892cc3b12db4dc1e8cbffec8e18bb18cbd77d0f](https://github.com/asn-d6/tor/commit/9892cc3b12db4dc1e8cbffec8e18bb18cbd77d0f). 
+
+Έπειτα, ανοίξαμε το αρχείο **signal.log** και είδαμε τα παρακάτω περιεχόμενα: 
+
+```text
+22 Feb 15:18 - You:    Hey Maria :)
+23 Mar 20:44 - You:    Maria? I need a favor.
+24 Mar 13:32 - You:    Maria, I passed from your place the other day but you were not there. Please call me it's urgent.
+24 Mar 13:34 - Maria:  ???
+25 Mar 13:35 - You:    HEy Maria! I'm trying to make sense of the inbetweens. I think I'm part of some weird game other people are playing on me...
+25 Mar 13:35 - You:    my flat got poisoned by those people and im now sleeping in the balcony.
+25 Mar 13:35 - You:    the neighbors are looking at me when i sleep.
+25 Mar 13:36 - You:    i saw a girl in the eleveator yesterday holding a plant with big branches. she started talking to me. i didnt naswer. i think.
+25 Mar 13:36 - You:    my mobile phone is broken. its tracking me and sending details to those men. i need to send it for repair.
+25 Mar 13:37 - You:    i think im not well. need to escape this city. they are looking at me. i dont git why...
+25 Mar 13:37 - You:    please come and find me. you are the only person i can commit to: 2355437c5f30fd2390a314b7d52fb3d24583ef97
+25 Mar 13:38 - You:    hope to see you soon! thanks!>
+25 Mar 17:12 - Maria:  ??? What are you talking about? I'm not Maria. I think you got the wrong number mate.
+```
+
+Παρατηρήσαμε πως το 11ο μύνημα, υπάρχει ο κωδικός hash **2355437c5f30fd2390a314b7d52fb3d24583ef97** και η λέξη **commit**. Έτσι σκεφτήκαμε να αντικαταστήσουμε τον κωδικό του τελευταίου commit στο παραπάνω url με αυτόν που πήραμε από το αρχείο signal.log ([https://github.com/asn-d6/tor/commit/2355437c5f30fd2390a314b7d52fb3d24583ef97](https://github.com/asn-d6/tor/commit/2355437c5f30fd2390a314b7d52fb3d24583ef97)). 
+
+Όταν ανοίξαμε το commit είδαμε τις εξής αλλαγές:
+```diff
+- /** Set the default values for a service configuration object <b>c</b>. */
++ /** Hey maria... I need you to come and find me. I'm hiding in a place produced
++  *  by my polymorphic geolocation algorithm.
++ *
++  *  You can find my coordinates by doing the following trick:
++  *  1) Calculate hexdigest = SHA256(<team name>). So for example the hexdigest of
++  *     SHA256("YS13Hey") is:
++  *         aea0f148fcabc595acb43d0945e6a36f538eceda8794bcb04d2dc16274ed9c68.
++  *
++  *  2) From that digest, derive two strings: x = hexdigest[16:] and y = hexdigest[16:32]
++  *
++  *  3) Convert those two hexadecimal strings into a decimal number by first
++  *     prepending "0."  and converting to a decimal fraction. Examples:
++  *           "0.aea0f148fcabc595" -> 0.682143287963...
++  *           "0.acb43d0945e6a36f" -> 0.674625220073...
++  *
++  *  4) Use the first half as the latitude and the second half as the longitude,
++  *     and use 47 and 4 as the integer part of the decimals respectively. So in
++  *     this case the above example becomes: (47.682143287963, 4.674625220073632)
++  *
++  * See you there!
++  *
++  * PS: I don't know what <team name> means but I hope you do....
++  */
++
+```
+Έτσι φτάσαμε στις οδηγίες για την εύρεση των συντεταγμένων όπου για **< team name>** βάλαμε το όνομα της ομάδας μας "**hackerz**". Ετσι βρήκαμε τις συντεταγμένες.   
 
 Συντεταγμένες: **(47.5284864714, 4.8260977302)**
 
