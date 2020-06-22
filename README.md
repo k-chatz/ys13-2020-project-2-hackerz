@@ -253,7 +253,9 @@ grep -v "https://en.wikipedia.org/wiki/The_Conversation" firefox.log > out.txt
 Από το diary2.html (http://jt4grrjwzyz3pjkylwfau5xnjaj23vxmhskqaeyfhrfylelw4hvxcuyd.onion/blogposts7589109238/blogposts/diary2.html) κρατήσαμε 2 πράγματα. 
 
 
-Το link του github με τον κώδικα του pico server (https://github.com/chatziko/pico) και το link για τον server( 4tpgiulwmoz4sphv.onion ). Στήσαμε τον server στα μηχανήματά μας ώστε να τον τεστάρουμε και για να δούμε τον κώδικα αναλυτικά. 
+Το link του github με τον κώδικα του pico server (https://github.com/chatziko/pico) και το link για τον server (4tpgiulwmoz4sphv.onion). 
+
+Στήσαμε τον server στα μηχανήματά μας ώστε να τον τεστάρουμε και για να δούμε τον κώδικα αναλυτικά. 
 
 Αρχικά είδαμε το σχόλιο "TODO" και παρατηρήσαμε την vulnerable printf. τυπώσαμε addresses βάζοντας για input μερικά %08x και πράγματι μας τα τύπωνε. Στη συνέχεια βάλαμε %s στο τέλος των %08x. Αν υπήρχε κάποιο string εκεί θα τυπωνόταν, οπότε αρχίσαμε από την πρώτη διεύθυνση να προσπαθούμε να τυπώσουμε κάποιο string, αν δε βρίσκαμε κάτι, προσθέταμε ένα %08x πριν το %s ωστε να πάμε στην επόμενη διεύθυνση να τυπώσουμε το string. Αυτό το συνεχίσαμε μέχρι να βρούμε κάτι χρήσιμο. 
 
@@ -285,11 +287,30 @@ print('\n\n')
 > d00 5806d155 admin:f68762a532c15a8954be87b3d3fc3c31”
 
 
-Άρα το md5 hash του κωδικου του admin είναι: **f68762a532c15a8954be87b3d3fc3c31** 
-Ψάξαμε σε μερικά site το hash για να βρόυμε το password και μετά από μερικές προσπάθειες βρήκαμε ένα το οποίο μας έδωσε το password "you shall not pass" :D 
-([https://md5.gromweb.com/?md5=f68762a532c15a8954be87b3d3fc3c31](https://md5.gromweb.com/?md5=f68762a532c15a8954be87b3d3fc3c31)). 
-Όταν αποκτήσαμε πρόσβαση, η απάντηση βρισκόταν εκεί.
- 
+Άρα το **md5 hash** του κωδικου του χρήστη **admin** είναι: **f68762a532c15a8954be87b3d3fc3c31**
+
+Έπειτα, ψάξαμε σε μερικά site το md5 hash για να το κάνουμε decrypt και μετά από μερικές προσπάθειες βρήκαμε το site [https://md5.gromweb.com/?md5=f68762a532c15a8954be87b3d3fc3c31](https://md5.gromweb.com/?md5=f68762a532c15a8954be87b3d3fc3c31) το οποίο μας έδωσε το password "**you shall not pass**" :D
+
+Αποκτήσαμε πρόσβαση στο site http://4tpgiulwmoz4sphv.onion και είδαμε μια λευκή σελίδα με το παρακάτω περιεχόμενο:
+```
+Welcome to the YS13 oasis! <3
+
+Over the past 5 years we've been evolving YS13 to fit a greater range of research activities
+while also being in contact with fellow enterpreneurs who help us monetize and bring our goals
+reality.
+
+We have a long list of projects to get where we want, but our next priority is "Plan X":
+that is, building an indoors greenhouse so that we can finally cultivate onions and avocados when we
+send our initial colony on Saturn.
+
+We are missing a "solar wind analyzer" to be able to proceed with this plan.
+If you see this page and you have one, please bring it to the YS13 store and we will count you in as a project backer.
+
+Love you big time!
+
+```
+Έτσι καταλήξαμε στο συμπέρασμα ότι η απάντηση βρισκόταν εκεί και συγκεκριμένα στην πρόταση "**We are missing a "solar wind analyzer" to be able to proceed with this plan.**". 
+
 Για να ολοκληρωθεί το Plan X χρείάζεται ένας **ηλιακός  αναλυτής ανέμου**...
 
 ## Ερώρημα 3
