@@ -713,7 +713,7 @@ Stack:
 0xbfffeef8 +-------------+
 	   | 0x00404000  | <- static address
 0xbfffeef4 +-------------+		
-	   | 0x00404000  | <- static address				(--- post_data frame ---)
+	   | 0x00404000  | <- static address				(--- post_param frame ---)
 0xbfffeef0 +-------------+
 	   | 0x786f3100  | <- canary
 0xbfffeeec +-------------+
@@ -722,7 +722,7 @@ Stack:
 	   | 0x41414141  |
 0xbfffee88 +-------------+ <==================== $esp
 	    ...........
-	    ...........
+	    ...........   						(*** __libc_system frame ***)
 	    ...........
 ```
 
