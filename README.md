@@ -697,7 +697,7 @@ Stack:
 0xbfffef18 +-------------+
 	   | 0x7661722f  | <- 'var/'
 0xbfffef14 +-------------+
-	   | 0x6c6f672f  | <- 'log/'						(--- route frame ---)
+	   | 0x6c6f672f  | <- 'log/'					(--- route frame ---)
 0xbfffef10 +-------------+
 	   | 0x7a2e6c6f  | <- 'z.lo'
 0xbfffef0c +-------------+
@@ -713,7 +713,7 @@ Stack:
 0xbfffeef8 +-------------+
 	   | 0x00404000  | <- static address
 0xbfffeef4 +-------------+		
-	   | 0x00404000  | <- static address					(--- post_data frame ---)
+	   | 0x00404000  | <- static address				(--- post_data frame ---)
 0xbfffeef0 +-------------+
 	   | 0x786f3100  | <- canary
 0xbfffeeec +-------------+
