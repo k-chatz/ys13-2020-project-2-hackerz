@@ -685,45 +685,45 @@ paste -sd, /var/log/z.log
 Αναπαράσταση της στοίβας μετά το buffer overflow:
 ```text
 Stack:
-			  ...........
-			  ...........
-			  ...........
-0xbfffef24	+-------------+
-			| 0x70617374  | <- 'past'
-0xbfffef20  +-------------+
-			| 0x65202d73  | <- 'e -s'
-0xbfffef1c  +-------------+
-			| 0x642c202f  | <- 'd, /'
-0xbfffef18  +-------------+
-			| 0x7661722f  | <- 'var/'
-0xbfffef14  +-------------+
-			| 0x6c6f672f  | <- 'log/'							(--- route frame ---)
-0xbfffef10  +-------------+
-			| 0x7a2e6c6f  | <- 'z.lo'
-0xbfffef0c  +-------------+
-			| 0x67000000  | <- 'g\0'
-0xbfffef08  +-------------+  
-			| 0xbfffef24  | <- pointer to char* command
-0xbfffef04  +-------------+
-			| 0xbfffef08  | <- pointer to char** command (before: is char *param_name)
-0xbfffef00  +-------------+  
-			| 0xb7c55d3d  | <- saved $eip, <__libc_system+0> (before: is 0x401193 <route+384>)
-0xbfffeefc  +-------------+ <==================== $ebp
-			| 0xbfffef98  | <- saved $ebp
-0xbfffeef8  +-------------+
-			| 0x00404000  | <- static address
-0xbfffeef4  +-------------+		
-			| 0x00404000  | <- static address					(--- post_data frame ---)
-0xbfffeef0  +-------------+
-			| 0x786f3100  | <- canary
-0xbfffeeec	+-------------+
-			| 0x41414141  |
-			| . . . . . . | <- post_data buffer (100 bytes)
-			| 0x41414141  |
-0xbfffee88  +-------------+ <==================== $esp
-			  ...........
-			  ...........
-			  ...........
+	     ...........
+	     ...........
+	     ...........
+0xbfffef24 +-------------+
+	   | 0x70617374  | <- 'past'
+0xbfffef20 +-------------+
+	   | 0x65202d73  | <- 'e -s'
+0xbfffef1c +-------------+
+	   | 0x642c202f  | <- 'd, /'
+0xbfffef18 +-------------+
+	   | 0x7661722f  | <- 'var/'
+0xbfffef14 +-------------+
+	   | 0x6c6f672f  | <- 'log/'						(--- route frame ---)
+0xbfffef10 +-------------+
+	   | 0x7a2e6c6f  | <- 'z.lo'
+0xbfffef0c +-------------+
+	   | 0x67000000  | <- 'g\0'
+0xbfffef08 +-------------+  
+	   | 0xbfffef24  | <- pointer to char* command
+0xbfffef04 +-------------+
+	   | 0xbfffef08  | <- pointer to char** command (before: is char *param_name)
+0xbfffef00 +-------------+  
+	   | 0xb7c55d3d  | <- saved $eip, <__libc_system+0> (before: is 0x401193 <route+384>)
+0xbfffeefc +-------------+ <==================== $ebp
+	   | 0xbfffef98  | <- saved $ebp
+0xbfffeef8 +-------------+
+	   | 0x00404000  | <- static address
+0xbfffeef4 +-------------+		
+	   | 0x00404000  | <- static address					(--- post_data frame ---)
+0xbfffeef0 +-------------+
+	   | 0x786f3100  | <- canary
+0xbfffeeec +-------------+
+	   | 0x41414141  |
+	   | . . . . . . | <- post_data buffer (100 bytes)
+	   | 0x41414141  |
+0xbfffee88 +-------------+ <==================== $esp
+	    ...........
+	    ...........
+	    ...........
 ```
 
 Επειδή στην συγκεκριμένη επίθεση κάνουμε την συνάρτηση **post_param** να επιστρέψει κατευθείαν μέσα στον κώδικα της **system** και η system για να εκτελέσει την εντολή που της δώσαμε κάνει **fork** και την εκτελεί στον child κώδικα με **exec**, δεν χρειάστηκε να δώσουμε σωστή τιμή για τον **saved $ebp** γιατί το output της εντολής θα το βλέπαμε κανονικά ακόμα και αν το child process που εξυπηρετεί το request κρασάρει.
