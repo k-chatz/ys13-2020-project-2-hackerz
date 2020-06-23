@@ -309,7 +309,7 @@ print('\n\n')
 
 Μετά από μερικές προσπάθειες βρήκαμε τα στοιχεία του πρώτου χρήστη (ήταν της μορφής **name:md5(password)**) που βρίσκονταν στο αρχείο **passwd**. 
 
-Μεταφέραμε ακριβώς το ίδιο input (**%08x %08x %08x %08x %08x %08x %s**) στο server της άσκησης και το output ήταν το παρακάτω: 
+Μεταφέραμε ακριβώς το ίδιο input (**%08x %08x %08x %08x %08x %08x %s**) στον server της άσκησης και το output ήταν το παρακάτω: 
 
 > http://4tpgiulwmoz4sphv.onion is requesting your username and
 > password. The site says: “Invalid user:  5807d010 15 5656951d ffffffff
@@ -359,9 +359,61 @@ further destabilize the space-plant continuum.
 ```
 καθως και μια **φόρμα εισόδου** η οποία κάνει post request στο path http://4tpgiulwmoz4sphv.onion/ultimate.html. Ετσι αρχίσαμε να βλέπουμε λίγο τον κώδικα του [pico server](https://github.com/chatziko/pico) για να καταλάβουμε την ροή που θα ακολουθήσει για να επεξεργαστεί το request και τέλος να στείλει κάποιο αποτέλεσμα πίσω στον client. 
 
-Αρχικά ο server οταν ξεκινάει καλεί την συνάρτηση **server_forever** η οποία περιμένει συνδέσεις στην θύρα **8080** χρησιμοποιώντας την blocking συνάρτηση **accept**. Τη στιγμή που θα έρθει κάποιο αίτημα, η κατάσταση του process θα αλλάξει από **block**/**wait** σε **running** ξανά και αμέσως μετά θα γίνει **fork** έτσι ώστε να εξυπυρετήσει τον **client** στον κώδικα του child process. Στη συνέχεια το child process θα καλέσει τη συνάρτηση **respond** η οποία αναλαμβάνει να χειριστεί το request καθώς και να θέσει το standard output να πηγαίνει κατευθείαν στο **socket** εκτελώντας την εντολή:
+Αρχικά ο server οταν ξεκινάει, καλεί την συνάρτηση **server_forever** η οποία περιμένει συνδέσεις στην θύρα **8080** χρησιμοποιώντας την blocking συνάρτηση **accept**. Τη στιγμή που θα έρθει κάποιο αίτημα, η κατάσταση του process θα αλλάξει από **block**/**wait** σε **running** ξανά και αμέσως μετά θα γίνει **fork** έτσι ώστε να εξυπυρετήσει τον **client** στον κώδικα του child process. Στη συνέχεια το child process θα καλέσει τη συνάρτηση **respond** η οποία αναλαμβάνει να χειριστεί το request, να θέσει το standard output να πηγαίνει κατευθείαν στο **socket** εκτελώντας την εντολή:
 ```c
 dup2(clientfd, STDOUT_FILENO);
+```
+και να καλέσει την συνάρτηση **route** η οποία θα εξετάσει τα **headers** του request για να ελέγξει ποιο path ζητάει να δει ο client καθώς και αν είναι προστατευμένο με κωδικό. 
+
+Στην περίπτωση του path http://4tpgiulwmoz4sphv.onion/ultimate.html η route πρέπει να τρέξει τον παρακάτω κώδικα: (main.c:50)
+```c
+ROUTE_POST("/ultimate.html") {  
+  // An extra layer of protection: require an admin password in POST  
+  Line admin_pwd[1];  
+  read_file("/etc/admin_pwd", admin_pwd, 1);  
+  
+ char* given_pwd = post_param("admin_pwd");  
+ int allowed = given_pwd != NULL && strcmp(admin_pwd[0], given_pwd) == 0;  
+  
+ if (allowed)  
+    serve_ultimate();  
+ else  printf("HTTP/1.1 403 Forbidden\r\n\r\nForbidden");  
+  
+  free(given_pwd);  
+}
+```
+και αν περάσει ο έλεγχος του password να εκτελεστεί η συνάρτηση **server_ultimate** η οποία αναλαμβάνει να στείλει πίσω στον client το περιεχόμενο του αρχείου **ultimate.html**.
+
+Για να γίνει αυτό, πρέπει να κληθεί η συνάρτηση **post_param** (main.c:169) η οποία αναλαμβάνει να κάνει parse το payload για να πάρει την τιμή της παραμέτρου **admin_pwd** και να την επιστρέψει ώστε να γίνει η σύγκριση. 
+
+**post_param (main.c:169):**
+```c
+// Parses and returns (in new memory) the value of a POST param  
+char* post_param(char* param_name) {  
+  // These are provided by pico:  
+ //  payload      : points to the POST data //  payload_size : the size of the paylaod  
+ // The POST data are in the form name1=value1&name2=value2&... // We need NULL terminated strings, so change '&' and '=' to '\0' // (copy first to avoid changing the real payload).  
+  char post_data[100];  
+  memcpy(post_data, payload, payload_size+1);  
+  
+ for (int i = 0; i < payload_size; i++)  
+    if (post_data[i] == '&' || post_data[i] == '=')  
+      post_data[i] = '\0';  
+  
+  // Now loop over all name=value pairs  
+  char* value;  
+ for (  
+    char* name = post_data;  
+  name < &post_data[payload_size];  
+  name = &value[strlen(value) + 1]      // the next name is right after the value  
+  ) {  
+    value = &name[strlen(name) + 1]; // the value is right after the name  
+  if (strcmp(name, param_name) == 0)  
+      return strdup(value);  
+  }  
+  
+  return NULL; // not found  
+}
 ```
 Παρατηρήσαμε ότι το input που δίναμε το έπαιρνε  η συνάρτηση **memcpy** για να το αντιγράψει στον πίνακα **post_data** και για μήκος χρησιμοποιούσε τo μήκος του input + 1 (payload_size + 1 ). Οπότε αν δίναμε είσοδο πάνω από 100 χαρακτήρες η **memcpy** θα έκανε πάνω από 100 αντιγραφές με αποτέλεσμα να μπορούμε να κάνουμε **buffer overflow**.
 
@@ -373,7 +425,7 @@ dup2(clientfd, STDOUT_FILENO);
 ```bash
 >>> call memset(post_data, 'A', 100)
 ```
-Οπότε τώρα το frame της **post_param()** φαίνεται κάπως έτσι:
+Οπότε τώρα το frame της συνάρτησης **post_param** φαίνεται κάπως έτσι:
 ```bash
 >>> x/39xw $sp
 0xbfffee60:	0xb7c86117	0x00417188	0x00000000	0x0040239f
@@ -397,7 +449,7 @@ dup2(clientfd, STDOUT_FILENO);
 ```
 ### Επίθεση
 
-Σκοπός μας ήταν να αλλάξουμε τη διεύθυνση του **saved $eip**, να κάνουμε την συνάρτηση **post_param()** να επιστρέψει μεσα στο **if(allowed)** και να κληθεί η συνάρτηση **serve_ultimate()**. Εν τέλη αποφασίσαμε να κάνουμε την συνάρτηση **post_param()** να επιστρέψει μέσα στην συνάρτηση **serve_ultimate()**. Επομένως, αλλάξαμε την τιμή του **saved $eip** από τον **gdb**, της δώσαμε την τιμή της διεύθυνσης εντολής **<serve_ultimate+18>** και πράγματι ο κώδικας συνέχισε να εκτελείται από εκείνη την εντολή και μετά, δηλαδή μέσα στην συνάρτηση **serve_ultimate()** με αποτέλεσμα να δούμε τα περιεχόμενα του αρχείου **ultimate.html**.
+Σκοπός μας ήταν να αλλάξουμε τη διεύθυνση του **saved $eip**, να κάνουμε την συνάρτηση **post_param** να επιστρέψει μεσα στο **if(allowed)** και να κληθεί η συνάρτηση **serve_ultimate**. Εν τέλη αποφασίσαμε να κάνουμε την συνάρτηση **post_param** να επιστρέψει μέσα στην συνάρτηση **serve_ultimate**. Επομένως, αλλάξαμε την τιμή του **saved $eip** από τον **gdb**, της δώσαμε την τιμή της διεύθυνσης εντολής **<serve_ultimate+18>** και πράγματι ο κώδικας συνέχισε να εκτελείται από εκείνη την εντολή και μετά, δηλαδή μέσα στην συνάρτηση **serve_ultimate** με αποτέλεσμα να δούμε τα περιεχόμενα του αρχείου **ultimate.html**.
 
 Για να γίνει το attack έπρεπε να κάνουμε ένα buffer overflow στο οποίο όλα τα στοιχεία μετά τον buffer θα παραμείνουν ίδια εκτός από τον **saved $eip**. Για αυτό το λόγο έπρεπε να ξέρουμε την τιμή του **canary**, του  **saved $ebp** και τις **2 ενδιάμεσες διευθύνσεις** που είχαμε παρατηρήσει ότι παρέμεναν σταθερές. 
 
